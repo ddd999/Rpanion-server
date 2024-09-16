@@ -35,7 +35,8 @@ class VideoPage extends basePage {
       timestamp: false,
       enableCameraHeartbeat: false,
       mavStreamSelected: this.props.mavStreamSelected,
-      multicastString: " "
+      multicastString: " ",
+      mediaPath: "/home/pi/Rpanion-server/media/"
     }
   }
 
@@ -137,18 +138,13 @@ class VideoPage extends basePage {
   }
 
   handleCaptureStill = (event) => {
-    // user requested to capture a still
-    this.setState({ waiting: true }, () => {
-      fetch('/api/capturestill', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          // TODO: add camera/exposure settings here
-        })
-      }).then(response => response.json()).then(state => { this.setState(state); this.setState({ waiting: false }) });
+    //user clicked to capture a still image
+    fetch('/api/capturestillphoto', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      }
     });
   }
 
@@ -179,6 +175,7 @@ class VideoPage extends basePage {
           useCameraHeartbeat: this.state.enableCameraHeartbeat,
           useMavControl: this.state.enableMavControl,
           mavStreamSelected: this.state.mavStreamSelected.value,
+          mediaPath: this.state.mediaPath
         })
       }).then(response => response.json()).then(state => { this.setState(state); this.setState({ waiting: false }) });
     });

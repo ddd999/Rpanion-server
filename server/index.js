@@ -455,7 +455,7 @@ app.get('/api/softwareinfo', (req, res) => {
 
 app.get('/api/videodevices', (req, res) => {
   vManager.populateAddresses()
-  vManager.getVideoDevices((err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SelusePhotoMode, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, useMavControl, selMavURI) => {
+  vManager.getVideoDevices((err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SelusePhotoMode, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, useMavControl, selMavURI, selMediaPath) => {
     if (!err) {
       res.setHeader('Content-Type', 'application/json')
       res.send(JSON.stringify({
@@ -479,7 +479,8 @@ app.get('/api/videodevices', (req, res) => {
         FPSMax: FPSMax,
         enableCameraHeartbeat: useCameraHeartbeat,
         enableMavControl: useMavControl,
-        mavStreamSelected: selMavURI
+        mavStreamSelected: selMavURI,
+        mediaPathSelected: selMediaPath
       }))
     } else {
       res.setHeader('Content-Type', 'application/json')
@@ -735,7 +736,8 @@ app.post('/api/startstopvideo', [check('active').isBoolean(),
   check('bitrate').if(check('active').isIn([true])).isInt({ min: 50, max: 50000 }),
   check('format').if(check('active').isIn([true])).isIn(['video/x-raw', 'video/x-h264', 'image/jpeg']),
   check('fps').if(check('active').isIn([true])).isInt({ min: -1, max: 100 }),
-  check('rotation').if(check('active').isIn([true])).isInt().isIn([0, 90, 180, 270])], (req, res) => {
+  check('rotation').if(check('active').isIn([true])).isInt().isIn([0, 90, 180, 270])],
+  check('mediaPath').if(check('active').isIn([true])).isLength({ min: 2 }), (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     winston.error('Bad POST vars in /api/startstopvideo ', { message: errors.array() })
@@ -743,7 +745,10 @@ app.post('/api/startstopvideo', [check('active').isBoolean(),
     return res.status(422).json(ret)
   }
   // user wants to start/stop video streaming
-  vManager.startStopStreaming(req.body.active, req.body.device, req.body.height, req.body.width, req.body.format, req.body.rotation, req.body.bitrate, req.body.fps, req.body.useUDP, req.body.usePhotoMode, req.body.useUDPIP, req.body.useUDPPort, req.body.useTimestamp, req.body.useCameraHeartbeat, req.body.useMavControl, req.body.mavStreamSelected, (err, status, addresses) => {
+  vManager.startStopStreaming(req.body.active, req.body.device, req.body.height, req.body.width, req.body.format,
+    req.body.rotation, req.body.bitrate, req.body.fps, req.body.useUDP, req.body.usePhotoMode, req.body.useUDPIP,
+    req.body.useUDPPort, req.body.useTimestamp, req.body.useCameraHeartbeat, req.body.useMavControl, req.body.mavStreamSelected,
+    req.body.mediaPathSelected, (err, status, addresses) => {
     if (!err) {
       res.setHeader('Content-Type', 'application/json')
       const ret = { streamingStatus: status, streamAddresses: addresses }
@@ -755,6 +760,11 @@ app.post('/api/startstopvideo', [check('active').isBoolean(),
       winston.error('Error in /api/startstopvideo ', { message: err })
     }
   })
+})
+
+// Capture a single still photo when in photo mode
+app.post('/api/capturestillphoto', function (req, res) {
+  vManager.captureStillPhoto()
 })
 
 // Get details of a network connection by connection ID
