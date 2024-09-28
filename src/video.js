@@ -276,7 +276,7 @@ class VideoPage extends basePage {
           </div>
         </div>
 
-        <div className = "photomode" style = {{display: this.state.photoMode ? "block" : "none"}}>
+        <div className = "photomode" style = {{display: (this.state.streamingStatus && this.state.photoMode ? "block" : "none")}}>
           <p><i>Photo mode stuff goes here</i></p>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
             <div className="col-sm-8">

@@ -136,7 +136,6 @@ vManager.eventEmitter.on('digicamcontrol', (senderSysId, senderCompId, targetCom
     if (fcManager.m) {
       // 203 = MAV_CMD_DO_DIGICAM_CONTROL
       fcManager.m.sendCommandAck(203, 0, senderSysId, senderCompId, targetComponent)
-      //fcManager.m.sendData(msg, senderCompId)
     }
   } catch (err) {
     console.log(err)
