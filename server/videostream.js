@@ -652,7 +652,7 @@ class videoStream {
       const senderCompId = minimal.MavComponent.CAMERA
       const targetComponent = packet.header.compid
 
-      this.eventEmitter.emit('digicamcontrol', senderSysId, senderCompId, targetComponent)
+      this.captureStillPhoto()
     }
   }
 }
