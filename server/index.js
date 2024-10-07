@@ -129,13 +129,24 @@ vManager.eventEmitter.on('camerasettings', (msg, senderSysId, senderCompId, targ
 })
 
 // Got a DO_DIGICAM_CONTROL event, send to flight controller
-//vManager.eventEmitter.on('digicamcontrol', (msg, senderSysId, senderCompId, targetComponent) => {
 vManager.eventEmitter.on('digicamcontrol', (senderSysId, senderCompId, targetComponent) => {
   console.log("index.js:digicamcontrol event received")
   try {
     if (fcManager.m) {
       // 203 = MAV_CMD_DO_DIGICAM_CONTROL
       fcManager.m.sendCommandAck(203, 0, senderSysId, senderCompId, targetComponent)
+    }
+  } catch (err) {
+    console.log(err)
+  }
+})
+
+// Got a CAMERA_TRIGGER event, send to flight controller
+vManager.eventEmitter.on('cameratrigger', (msg, senderSysId, senderCompId, targetComponent) => {
+  try {
+    if (fcManager.m) {
+      fcManager.m.sendCommandAck(common.CameraTrigger.MSG_ID, 0, senderSysId, senderCompId, targetComponent)
+      fcManager.m.sendData(msg, senderCompId)
     }
   } catch (err) {
     console.log(err)
@@ -764,6 +775,8 @@ app.post('/api/startstopvideo', [check('active').isBoolean(),
 // Capture a single still photo when in photo mode
 app.post('/api/capturestillphoto', function (req, res) {
   vManager.captureStillPhoto()
+  console.log(req.body)
+  res.end();
 })
 
 // Get details of a network connection by connection ID
