@@ -138,7 +138,6 @@ class VideoPage extends basePage {
   }
 
   handleCaptureStill = (event) => {
-    //user clicked to capture a still image
     fetch('/api/capturestillphoto', {
       method: 'POST',
       headers: {

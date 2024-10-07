@@ -12,6 +12,7 @@ class videoStream {
     this.devices = null
     this.settings = settings
     this.savedDevice = null
+    this.photoSeq = 0
 
     this.winston = winston
 
@@ -519,10 +520,24 @@ class videoStream {
     return callback(null, this.active, this.deviceAddresses)
   }
 
-  captureStillPhoto () {
+ captureStillPhoto () {
     // Capture a single still photo
     console.log("Received capturestillphoto event")
     this.deviceStream.kill('SIGUSR1');
+
+    const senderSysId = this.targetSystem
+    const senderCompId = minimal.MavComponent.CAMERA
+
+    // build a CAMERA_TRIGGER packet
+    const msg = new common.CameraTrigger()
+
+    // Date.now() returns time in milliseconds
+    msg.timeUsec = BigInt(Date.now() * 1000)
+    msg.seq = this.photoSeq
+
+    this.photoSeq++
+
+    this.eventEmitter.emit('cameratrigger', msg, senderSysId , senderCompId)
   }
 
   onMavPacket (packet, data) {
@@ -652,7 +667,7 @@ class videoStream {
       const senderCompId = minimal.MavComponent.CAMERA
       const targetComponent = packet.header.compid
 
-      this.captureStillPhoto()
+      this.captureStillPhoto(packet)
     }
   }
 }
