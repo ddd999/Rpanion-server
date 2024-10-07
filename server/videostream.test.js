@@ -31,7 +31,7 @@ describe('Video Functions', function () {
     const vManager = new VideoStream(settings, winston)
 
     vManager.populateAddresses()
-    vManager.getVideoDevices(function (err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, selMavURI) {
+    vManager.getVideoDevices(function (err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SelusePhotoMode, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, selMavURI) {
       assert.equal(err, null)
       assert.equal(active, false)
       assert.notEqual(seldevice, null)
@@ -40,6 +40,7 @@ describe('Video Functions', function () {
       assert.notEqual(selbitrate, null)
       assert.notEqual(selfps, null)
       assert.equal(SeluseUDP, false)
+      assert.equal(SelusePhotoMode, false)
       assert.equal(SeluseUDPIP, '127.0.0.1')
       assert.equal(SeluseUDPPort, 5400)
       assert.equal(timestamp, false)
@@ -63,11 +64,11 @@ describe('Video Functions', function () {
     settings.clear()
     const vManager = new VideoStream(settings, winston)
 
-    vManager.startStopStreaming(true, 'testsrc', '1080', '1920', 'video/x-h264', '0', '1000', '5', false, false, false, true, false, '0', function (err, status, addresses) {
+    vManager.startStopStreaming(true, 'testsrc', '1080', '1920', 'video/x-h264', '0', '1000', '5', false, false, false, false, true, false, false, '0', '~/Rpanion-server/media/', function (err, status, addresses) {
       assert.equal(err, null)
       assert.equal(status, true)
       assert.notEqual(vManager.deviceStream.pid, null)
-      vManager.startStopStreaming(false, 'testsrc', '1080', '1920', 'video/x-h264', '0', '1000', '5', false, false, false, true, false, '0', function (err, status, addresses) {
+      vManager.startStopStreaming(false, 'testsrc', '1080', '1920', 'video/x-h264', '0', '1000', '5', false, false, false, false, true, false, false, '0', '~/Rpanion-server/media/', function (err, status, addresses) {
         assert.equal(err, null)
         assert.equal(status, false)
         done()
