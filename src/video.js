@@ -132,9 +132,14 @@ class VideoPage extends basePage {
     // Allow MAVLink-connected devices to control the camera
     this.setState({ enableMavControl: !this.state.enableMavControl });
   }
+
   handleMavStreamChange = (value) => {
     //new value for selected stream IP
     this.setState({ mavStreamSelected: value });
+  }
+
+  handleMediaPathChange = (event) => {
+    this.setState({ mediaPath: event.target.value});
   }
 
   handleCaptureStill = (event) => {
@@ -199,7 +204,7 @@ class VideoPage extends basePage {
                 </div>
                 <div className="form-check">
                   <input className="form-check-input" type="radio" name="cameramode" value="photo" disabled={this.state.streamingStatus} onChange={this.handleUsePhotoModeChange} checked={this.state.photoMode} />
-                  <label className="form-check-label">Photography Mode</label>
+                  <label className="form-check-label">Still Photo Capture</label>
                 </div>
               </div>
         </div>
@@ -275,11 +280,16 @@ class VideoPage extends basePage {
           </div>
         </div>
 
-        <div className = "photomode" style = {{display: (this.state.streamingStatus && this.state.photoMode ? "block" : "none")}}>
-          <p><i>Photo mode stuff goes here</i></p>
+        <div className = "photomode" style = {{display: (this.state.photoMode ? "block" : "none")}}>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
-            <div className="col-sm-8">
-              <Button onClick={this.handleCaptureStill} className="btn btn-primary">Take Photo Now</Button>
+          <label className="col-sm-4 col-form-label ">Media Storage Path</label>
+              <div className="col-sm-8">
+                <input type="text" size="35" name="mediastoragepath" disabled={this.state.streamingStatus} value={this.state.mediaPath} onChange={this.handleMediaPathChange} />
+                <br/>
+                <br/>
+              </div>
+            <div className="col-sm-8" style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>
+              <Button onClick={this.handleCaptureStill} className="btn btn-primary" >Take Photo Now</Button>
             </div>
           </div>
           <br/>

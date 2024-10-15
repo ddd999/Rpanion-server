@@ -490,7 +490,7 @@ app.get('/api/videodevices', (req, res) => {
         enableCameraHeartbeat: useCameraHeartbeat,
         enableMavControl: useMavControl,
         mavStreamSelected: selMavURI,
-        mediaPathSelected: selMediaPath
+        mediaPath: selMediaPath
       }))
     } else {
       res.setHeader('Content-Type', 'application/json')
@@ -758,7 +758,7 @@ app.post('/api/startstopvideo', [check('active').isBoolean(),
   vManager.startStopStreaming(req.body.active, req.body.device, req.body.height, req.body.width, req.body.format,
     req.body.rotation, req.body.bitrate, req.body.fps, req.body.useUDP, req.body.usePhotoMode, req.body.useUDPIP,
     req.body.useUDPPort, req.body.useTimestamp, req.body.useCameraHeartbeat, req.body.useMavControl, req.body.mavStreamSelected,
-    req.body.mediaPathSelected, (err, status, addresses) => {
+    req.body.mediaPath, (err, status, addresses) => {
     if (!err) {
       res.setHeader('Content-Type', 'application/json')
       const ret = { streamingStatus: status, streamAddresses: addresses }

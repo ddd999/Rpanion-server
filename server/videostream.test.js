@@ -31,7 +31,9 @@ describe('Video Functions', function () {
     const vManager = new VideoStream(settings, winston)
 
     vManager.populateAddresses()
-    vManager.getVideoDevices(function (err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SelusePhotoMode, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, selMavURI) {
+    vManager.getVideoDevices(function (err, devices, active, seldevice, selRes, selRot, selbitrate, selfps,
+      SeluseUDP, SelusePhotoMode, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres,
+      useCameraHeartbeat, useMavControl, selMavURI, selMediaPath) {
       assert.equal(err, null)
       assert.equal(active, false)
       assert.notEqual(seldevice, null)
@@ -47,7 +49,10 @@ describe('Video Functions', function () {
       assert.notEqual(fps, null)
       assert.notEqual(FPSMax, null)
       assert.notEqual(vidres, null)
+      assert.equal(useCameraHeartbeat, false)
+      assert.equal(useMavControl, false)
       assert.notEqual(selMavURI, null)
+      assert.equal(selMediaPath, '/home/pi/Rpanion-server/media/')
       done()
     })
   }).timeout(5000)
@@ -64,15 +69,26 @@ describe('Video Functions', function () {
     settings.clear()
     const vManager = new VideoStream(settings, winston)
 
-    vManager.startStopStreaming(true, 'testsrc', '1080', '1920', 'video/x-h264', '0', '1000', '5', false, false, false, false, true, false, false, '0', '~/Rpanion-server/media/', function (err, status, addresses) {
+    vManager.startStopStreaming(true, 'testsrc', '1080', '1920', 'video/x-h264', '0', '1000', '5', false, false, false, false, true, false, false, '0', '/home/pi/Rpanion-server/media/', function (err, status, addresses) {
       assert.equal(err, null)
       assert.equal(status, true)
       assert.notEqual(vManager.deviceStream.pid, null)
-      vManager.startStopStreaming(false, 'testsrc', '1080', '1920', 'video/x-h264', '0', '1000', '5', false, false, false, false, true, false, false, '0', '~/Rpanion-server/media/', function (err, status, addresses) {
+      vManager.startStopStreaming(false, 'testsrc', '1080', '1920', 'video/x-h264', '0', '1000', '5', false, false, false, false, true, false, false, '0', '/home/pi/Rpanion-server/media/', function (err, status, addresses) {
         assert.equal(err, null)
         assert.equal(status, false)
         done()
       })
     })
   })
+
+  // it('should fire a cameratrigger event', function(done) {
+  //   settings.clear()
+  //   const vManager = new VideoStream(settings, winston)
+
+  //   vManager.captureStillPhoto( function () {
+  //     //assert.equal(vManager.photoSeq, 1)
+  //     done()
+  //   })
+  // })
+
 })

@@ -30,13 +30,13 @@ class videoStream {
     // need to scan for video devices first though
     if (this.active) {
       this.active = false
-      this.getVideoDevices((error, devices, active, seldevice, selRes, selRot, selbitrate, selfps, selUDP, selPhotoMode, selUDPIP, selUDPPort, useTimestamp, useCameraHeartbeat, useMavControl, selMavURI) => {
+      this.getVideoDevices((error, devices, active, seldevice, selRes, selRot, selbitrate, selfps, selUDP, selPhotoMode, selUDPIP, selUDPPort, useTimestamp, useCameraHeartbeat, useMavControl, selMavURI, selMediaPath) => {
         if (!error) {
           this.startStopStreaming(true, this.savedDevice.device, this.savedDevice.height,
             this.savedDevice.width, this.savedDevice.format,
             this.savedDevice.rotation, this.savedDevice.bitrate, this.savedDevice.fps, this.savedDevice.useUDP, this.savedDevice.usePhotoMode,
-            this.savedDevice.useUDPIP, this.savedDevice.useUDPPort, this.savedDevice.useTimestamp, this.savedDevice.useCameraHeartbeat, this.savedDevice.useMavControl,
-            this.savedDevice.mavStreamSelected, this.savedDevice.mediaPath,
+            this.savedDevice.useUDPIP, this.savedDevice.useUDPPort, this.savedDevice.useTimestamp, this.savedDevice.useCameraHeartbeat,
+            this.savedDevice.useMavControl, this.savedDevice.mavStreamSelected, this.savedDevice.mediaPath,
             (err, status, addresses) => {
               if (err) {
                 // failed setup, reset settings
@@ -44,6 +44,7 @@ class videoStream {
                 this.resetVideo()
               }
             })
+          this.winston.info("Media path is: ", this.savedDevice.mediaPath)
         } else {
           // failed setup, reset settings
           console.log('Reset video3')
@@ -67,7 +68,8 @@ class videoStream {
   // video streaming
   getVideoDevices (callback) {
     // get all video device details
-    // callback is: err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SelusePhotoMode, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, cameraHeartbeat, mavControl, selMavURI
+    // callback is: err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SelusePhotoMode, SeluseUDPIP,
+    // SeluseUDPPort, timestamp, fps, FPSMax, vidres, cameraHeartbeat, mavControl, selMavURI, selMediaPath
     exec('python3 ./python/gstcaps.py', (error, stdout, stderr) => {
       const warnstrings = ['DeprecationWarning', 'gst_element_message_full_with_details', 'camera_manager.cpp', 'Unsupported V4L2 pixel format']
       if (stderr && !warnstrings.some(wrn => stderr.includes(wrn))) {
@@ -86,7 +88,7 @@ class videoStream {
           return callback(null, this.devices, this.active, this.devices[0], this.devices[0].caps[0],
             { label: '0°', value: 0 }, 1100, fpsSelected, false, false, '127.0.0.1', 5400, false,
             (this.devices[0].caps[0].fps !== undefined) ? this.devices[0].caps[0].fps : [],
-            this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, false, { label: '127.0.0.1', value: 0 })
+            this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, false, { label: '127.0.0.1', value: 0 }, '/home/pi/Rpanion-server/media/')
         } else {
           // format saved settings
           const seldevice = this.devices.filter(it => it.value === this.savedDevice.device)
@@ -98,7 +100,7 @@ class videoStream {
             return callback(null, this.devices, this.active, this.devices[0], this.devices[0].caps[0],
               { label: '0°', value: 0 }, 1100, fpsSelected, false, false, '127.0.0.1', 5400, false,
               (this.devices[0].caps[0].fps !== undefined) ? this.devices[0].caps[0].fps : [],
-              this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, false, { label: '127.0.0.1', value: 0 }, '/home/Rpanion-server/')
+              this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, false, { label: '127.0.0.1', value: 0 }, '/home/pi/Rpanion-server/media/')
           }
           const selRes = seldevice[0].caps.filter(it => it.value === this.savedDevice.width.toString() + 'x' + this.savedDevice.height.toString() + 'x' + this.savedDevice.format.toString().split('/')[1])
           let selFPS = this.savedDevice.fps
@@ -114,7 +116,7 @@ class videoStream {
               this.savedDevice.useUDPPort, this.savedDevice.useTimestamp, (selRes[0].fps !== undefined) ? selRes[0].fps : [],
               selRes[0].fpsmax, seldevice[0].caps, this.savedDevice.useCameraHeartbeat, this.savedDevice.useMavControl,
               { label: this.savedDevice.mavStreamSelected.toString(), value: this.savedDevice.mavStreamSelected },
-              '/home/Rpanion-server/',
+              this.savedDevice.mediaPath
             )
           } else {
             // bad settings
@@ -125,7 +127,7 @@ class videoStream {
               { label: '0°', value: 0 }, 1100, fpsSelected, false, false, '127.0.0.1', 5400, false,
               (this.devices[0].caps[0].fps !== undefined) ? this.devices[0].caps[0].fps : [],
               this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, false, { label: '127.0.0.1', value: 0 },
-              '/home/Rpanion-server/')
+              '/home/pi/Rpanion-server/media/')
           }
         }
       }
@@ -216,6 +218,8 @@ class videoStream {
         mavStreamSelected,
         mediaPath
       }
+
+      this.winston.info("from startStopStreamning(), media path is: ", this.savedDevice.mediaPath)
 
       // Don't start a video stream if we are in photo mode
       if (this.savedDevice.usePhotoMode){
@@ -341,6 +345,7 @@ class videoStream {
       console.log('Video current same')
       this.winston.info('Video current same')
       return callback(null, this.active, this.deviceAddresses)
+      this.winston.info("From startstopstreaming, mediapath is: ", this.mediaPath)
     }
     // user wants to start or stop streaming
     if (active) {
