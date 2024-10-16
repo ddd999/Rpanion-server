@@ -3,6 +3,12 @@ const settings = require('settings-store')
 const VideoStream = require('./videostream')
 const winston = require('./winstonconfig')(module)
 
+const chai = require('chai')
+const sinon = require('sinon')
+const { expect } = chai
+chai.use(require('sinon-chai'))
+const { minimal } = require('node-mavlink')
+
 describe('Video Functions', function () {
   it('#videomanagerinit()', function () {
     settings.clear()
@@ -81,14 +87,38 @@ describe('Video Functions', function () {
     })
   })
 
-  // it('should fire a cameratrigger event', function(done) {
-  //   settings.clear()
-  //   const vManager = new VideoStream(settings, winston)
+  describe('#videomanagerstartInterval()', () => {
+    let vManager
+    let setIntervalStub
+    let emitStub
 
-  //   vManager.captureStillPhoto( function () {
-  //     //assert.equal(vManager.photoSeq, 1)
-  //     done()
-  //   })
-  // })
+    beforeEach(() => {
+      vManager = new VideoStream(settings, winston)
+      setIntervalStub = sinon.stub(global, 'setInterval')
+      emitStub = sinon.stub(vManager.eventEmitter, 'emit')
+    })
 
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('should start an interval and emit a "cameraheartbeat" event', () => {
+      const intervalId = 12345
+      setIntervalStub.returns(intervalId)
+
+      vManager.startInterval()
+
+      // Simulate the interval execution
+      const mavType = minimal.MavType.CAMERA
+      const autopilot = minimal.MavAutopilot.INVALID
+      const component = minimal.MavComponent.CAMERA
+
+      // Call the interval function manually
+      const intervalFunction = setIntervalStub.firstCall.args[0] // Get the first argument (the callback)
+      intervalFunction() // Manually invoke the callback
+
+      expect(vManager.intervalObj).to.equal(intervalId)
+      expect(emitStub).to.have.been.calledWith('cameraheartbeat', mavType, autopilot, component)
+    })
+  })
 })
