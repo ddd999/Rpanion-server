@@ -2,7 +2,8 @@
     "env": {
         "browser": true,
         "es6": true,
-        "node": true
+        "node": true,
+        "mocha": true
     },
     "extends": [
         "plugin:react/recommended",
@@ -13,14 +14,17 @@
         "SharedArrayBuffer": "readonly"
     },
     "parserOptions": {
+        "ecmaVersion": 2018,
+        "parser": "@babel/eslint-parser",
+        "requireConfigFile": false,
+        "sourceType": "module",
         "ecmaFeatures": {
             "jsx": true
-        },
-        "ecmaVersion": 2018,
-        "sourceType": "module"
+        }
     },
     "plugins": [
-        "react"
+        "react",
+        "babel"
     ],
     "rules": {
     },
