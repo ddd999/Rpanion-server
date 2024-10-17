@@ -7,7 +7,7 @@ const chai = require('chai')
 const sinon = require('sinon')
 const { expect } = chai
 chai.use(require('sinon-chai'))
-const { minimal } = require('node-mavlink')
+const { minimal, common } = require('node-mavlink')
 
 describe('Video Functions', function () {
   it('#videomanagerinit()', function () {
@@ -121,4 +121,36 @@ describe('Video Functions', function () {
       expect(emitStub).to.have.been.calledWith('cameraheartbeat', mavType, autopilot, component)
     })
   })
+
+  describe('#videomanagercaptureStillPhoto()', () => {
+    let vManager
+    let emitStub
+
+    beforeEach(() => {
+      vManager = new VideoStream(settings, winston)
+      // Mocking deviceStream with a kill method
+      vManager.deviceStream = {
+      kill: sinon.stub()
+    };
+      sinon.stub(Date, 'now').returns(1729137498022000); // Stub to return a fixed timestamp
+      emitStub = sinon.stub(vManager.eventEmitter, 'emit')
+    })
+
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('should emit a "cameratrigger" event', () => {
+
+      // build a CAMERA_TRIGGER packet
+      const expectedMsg = new common.CameraTrigger()
+      expectedMsg.timeUsec = BigInt(Date.now() * 1000)
+      expectedMsg.seq = 0
+
+      vManager.captureStillPhoto(); // Call the method under test
+
+      expect(emitStub).to.have.been.calledWith('cameratrigger', expectedMsg)
+    })
+  })
+
 })
