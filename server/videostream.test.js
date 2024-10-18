@@ -153,4 +153,125 @@ describe('Video Functions', function () {
     })
   })
 
+  describe('#videomanagersendCameraInformation()', () => {
+    let vManager
+    let emitStub
+
+    beforeEach(() => {
+      vManager = new VideoStream(settings, winston)
+      emitStub = sinon.stub(vManager.eventEmitter, 'emit')
+
+      vManager.savedDevice = {
+        width: 1920,
+        height: 1080,
+        usePhotoMode: true
+      }
+    })
+
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('should emit a "camerainfo" event', () => {
+      // build a CAMERA_INFORMATION packet
+      const expectedMsg = new common.CameraInformation()
+
+      // TODO: implement missing attributes here
+      expectedMsg.timeBootMs = 0
+      expectedMsg.vendorName = 0
+      expectedMsg.modelName = 0
+      expectedMsg.firmwareVersion = 0
+      expectedMsg.focalLength = null
+      expectedMsg.sensorSizeH = null
+      expectedMsg.sensorSizeV = null
+      expectedMsg.resolutionH = vManager.savedDevice.width
+      expectedMsg.resolutionV = vManager.savedDevice.height
+      expectedMsg.lensId = 0
+      // 256 = CAMERA_CAP_FLAGS_HAS_VIDEO_STREAM (hard-coded for now until Rpanion gains more camera capabilities)
+      if (vManager.savedDevice.usePhotoMode) {
+        // 2 = CAMERA_CAP_FLAGS_CAPTURE_IMAGE
+        expectedMsg.flags = 2
+      } else {
+        // 256 = CAMERA_CAP_FLAGS_HAS_VIDEO_STREAM
+        expectedMsg.flags = 256
+      }
+
+      expectedMsg.camDefinitionVersion = 0
+      expectedMsg.camDefinitionUri = ''
+      expectedMsg.gimbalDeviceId = 0
+
+      const senderSysId = 1
+      const senderCompId = minimal.MavComponent.CAMERA
+      const targetComponent = 1
+
+      vManager.sendCameraInformation(senderSysId, senderCompId, targetComponent); // Call the method under test
+
+      expect(emitStub).to.have.been.calledWith('camerainfo', expectedMsg, senderSysId, senderCompId, targetComponent)
+    })
+  })
+
+  describe('#videomanagersendVideoStreamInformation()', () => {
+    let vManager
+    let emitStub
+
+    beforeEach(() => {
+      vManager = new VideoStream(settings, winston)
+      emitStub = sinon.stub(vManager.eventEmitter, 'emit')
+
+      vManager.savedDevice = {
+        useUDP: true,
+        useUDPPort: 9000,
+        mavStreamSelected: "localhost",
+        device: "camera1",
+        fps: 30,
+        width: 1920,
+        height: 1080,
+        bitrate: 6000,
+        rotation: 0
+      }
+    })
+
+    afterEach(() => {
+      sinon.restore()
+    })
+
+    it('should emit a "videostreaminfo" event', () => {
+      // build a VIDEO_STREAM_INFORMATION packet
+      const expectedMsg = new common.VideoStreamInformation()
+
+      expectedMsg.streamId = 1
+      expectedMsg.count = 1
+      // msg.type and msg.uri need to be different depending on whether RTP or RTSP is selected
+      if (vManager.savedDevice.useUDP) {
+        // msg.type = 0 = VIDEO_STREAM_TYPE_RTSP
+        // msg.type = 1 = VIDEO_STREAM_TYPE_RTPUDP
+        expectedMsg.type = 1
+        // For RTP, just send the destination UDP port instead of a full URI
+        expectedMsg.uri = vManager.savedDevice.useUDPPort.toString()
+      } else {
+        expectedMsg.type = 0
+        expect.uri = `rtsp://${vManager.savedDevice.mavStreamSelected}:8554/${vManager.savedDevice.device}`
+      }
+
+      // 1 = VIDEO_STREAM_STATUS_FLAGS_RUNNING
+      // 2 = VIDEO_STREAM_STATUS_FLAGS_THERMAL
+      expectedMsg.flags = 1
+      expectedMsg.framerate = vManager.savedDevice.fps
+      expectedMsg.resolutionH = vManager.savedDevice.width
+      expectedMsg.resolutionV = vManager.savedDevice.height
+      expectedMsg.bitrate = vManager.savedDevice.bitrate
+      expectedMsg.rotation = vManager.savedDevice.rotation
+      // Rpanion doesn't collect field of view values, so just set to zero
+      expectedMsg.hfov = 0
+      expectedMsg.name = vManager.savedDevice.device
+
+      const senderSysId = 1
+      const senderCompId = minimal.MavComponent.CAMERA
+      const targetComponent = 1
+
+      vManager.sendVideoStreamInformation(senderSysId, senderCompId, targetComponent); // Call the method under test
+
+      expect(emitStub).to.have.been.calledWith('videostreaminfo', expectedMsg, senderSysId, senderCompId, targetComponent)
+    })
+  })
 })
