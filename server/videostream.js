@@ -539,125 +539,126 @@ class videoStream {
     this.eventEmitter.emit('cameratrigger', msg, senderSysId, senderCompId)
   }
 
+  sendCameraInformation (senderSysId, senderCompId, targetComponent) {
+    console.log('Responding to MAVLink request for CameraInformation')
+    this.winston.info('Responding to MAVLink request for CameraInformation')
+
+    // const senderSysId = packet.header.sysid
+    // const senderCompId = minimal.MavComponent.CAMERA
+    // const targetComponent = packet.header.compid
+
+    // build a CAMERA_INFORMATION packet
+    const msg = new common.CameraInformation()
+
+    // TODO: implement missing attributes here
+    msg.timeBootMs = 0
+    msg.vendorName = 0
+    msg.modelName = 0
+    msg.firmwareVersion = 0
+    msg.focalLength = null
+    msg.sensorSizeH = null
+    msg.sensorSizeV = null
+    msg.resolutionH = this.savedDevice.width
+    msg.resolutionV = this.savedDevice.height
+    msg.lensId = 0
+    // 256 = CAMERA_CAP_FLAGS_HAS_VIDEO_STREAM (hard-coded for now until Rpanion gains more camera capabilities)
+    if (this.savedDevice.usePhotoMode) {
+      // 2 = CAMERA_CAP_FLAGS_CAPTURE_IMAGE
+      msg.flags = 2
+    } else {
+      // 256 = CAMERA_CAP_FLAGS_HAS_VIDEO_STREAM
+      msg.flags = 256
+    }
+
+    msg.camDefinitionVersion = 0
+    msg.camDefinitionUri = ''
+    msg.gimbalDeviceId = 0
+    this.eventEmitter.emit('camerainfo', msg, senderSysId, senderCompId, targetComponent)
+  }
+
+  sendVideoStreamInformation (senderSysId, senderCompId, targetComponent) {
+    console.log('Responding to MAVLink request for VideoStreamInformation')
+    this.winston.info('Responding to MAVLink request for VideoStreamInformation')
+
+    // const senderSysId = packet.header.sysid
+    // const senderCompId = minimal.MavComponent.CAMERA
+    // const targetComponent = packet.header.compid
+
+    // build a VIDEO_STREAM_INFORMATION packet
+    const msg = new common.VideoStreamInformation()
+    // rpanion only supports a single stream, so streamId and count will always be 1
+    msg.streamId = 1
+    msg.count = 1
+
+    // msg.type and msg.uri need to be different depending on whether RTP or RTSP is selected
+    if (this.savedDevice.useUDP) {
+      // msg.type = 0 = VIDEO_STREAM_TYPE_RTSP
+      // msg.type = 1 = VIDEO_STREAM_TYPE_RTPUDP
+      msg.type = 1
+      // For RTP, just send the destination UDP port instead of a full URI
+      msg.uri = this.savedDevice.useUDPPort.toString()
+    } else {
+      msg.type = 0
+      msg.uri = `rtsp://${this.savedDevice.mavStreamSelected}:8554/${this.savedDevice.device}`
+    }
+
+    // 1 = VIDEO_STREAM_STATUS_FLAGS_RUNNING
+    // 2 = VIDEO_STREAM_STATUS_FLAGS_THERMAL
+    msg.flags = 1
+    msg.framerate = this.savedDevice.fps
+    msg.resolutionH = this.savedDevice.width
+    msg.resolutionV = this.savedDevice.height
+    msg.bitrate = this.savedDevice.bitrate
+    msg.rotation = this.savedDevice.rotation
+    // Rpanion doesn't collect field of view values, so just set to zero
+    msg.hfov = 0
+    msg.name = this.savedDevice.device
+
+    this.eventEmitter.emit('videostreaminfo', msg, senderSysId, senderCompId, targetComponent)
+  }
+
+  sendCameraSettings (senderSysId, senderCompId, targetComponent) {
+    console.log('Responding to MAVLink request for CameraSettings')
+    this.winston.info('Responding to MAVLink request for CameraSettings')
+    // const senderSysId = packet.header.sysid
+    // const senderCompId = minimal.MavComponent.CAMERA
+    // const targetComponent = packet.header.compid
+
+    // build a CAMERA_SETTINGS packet
+    const msg = new common.CameraSettings()
+
+    msg.timeBootMs = 0
+    // Camera modes: 0 = IMAGE, 1 = VIDEO, 2 = IMAGE_SURVEY
+    if (this.savedDevice.usePhotoMode) {
+      msg.modeId = 0
+    } else {
+      msg.modeId = 1
+    }
+    msg.zoomLevel = null
+    msg.focusLevel = null
+
+    this.eventEmitter.emit('camerasettings', msg, senderSysId, senderCompId, targetComponent)
+  }
+
   onMavPacket (packet, data) {
     // FC is active
     if (!this.active) {
       return
     }
 
-    if (data.targetComponent === minimal.MavComponent.CAMERA &&
-      packet.header.msgid === common.CommandLong.MSG_ID &&
-      data._param1 === common.CameraInformation.MSG_ID) {
-      console.log('Responding to MAVLink request for CameraInformation')
-      this.winston.info('Responding to MAVLink request for CameraInformation')
-
-      const senderSysId = packet.header.sysid
-      const senderCompId = minimal.MavComponent.CAMERA
-      const targetComponent = packet.header.compid
-
-      // build a CAMERA_INFORMATION packet
-      const msg = new common.CameraInformation()
-
-      // TODO: implement missing attributes here
-      msg.timeBootMs = 0
-      msg.vendorName = 0
-      msg.modelName = 0
-      msg.firmwareVersion = 0
-      msg.focalLength = null
-      msg.sensorSizeH = null
-      msg.sensorSizeV = null
-      msg.resolutionH = this.savedDevice.width
-      msg.resolutionV = this.savedDevice.height
-      msg.lensId = 0
-      // 256 = CAMERA_CAP_FLAGS_HAS_VIDEO_STREAM (hard-coded for now until Rpanion gains more camera capabilities)
-      if (this.savedDevice.usePhotoMode) {
-        // 2 = CAMERA_CAP_FLAGS_CAPTURE_IMAGE
-        msg.flags = 2
-      } else {
-        // 256 = CAMERA_CAP_FLAGS_HAS_VIDEO_STREAM
-        msg.flags = 256
-      }
-
-      msg.camDefinitionVersion = 0
-      msg.camDefinitionUri = ''
-      msg.gimbalDeviceId = 0
-      this.eventEmitter.emit('camerainfo', msg, senderSysId, senderCompId, targetComponent)
-    } else if (data.targetComponent === minimal.MavComponent.CAMERA &&
-      packet.header.msgid === common.CommandLong.MSG_ID &&
-      data._param1 === common.VideoStreamInformation.MSG_ID &&
-      !this.savedDevice.usePhotoMode) {
-      console.log('Responding to MAVLink request for VideoStreamInformation')
-      this.winston.info('Responding to MAVLink request for VideoStreamInformation')
-
-      const senderSysId = packet.header.sysid
-      const senderCompId = minimal.MavComponent.CAMERA
-      const targetComponent = packet.header.compid
-
-      // build a VIDEO_STREAM_INFORMATION packet
-      const msg = new common.VideoStreamInformation()
-      // rpanion only supports a single stream, so streamId and count will always be 1
-      msg.streamId = 1
-      msg.count = 1
-
-      // msg.type and msg.uri need to be different depending on whether RTP or RTSP is selected
-      if (this.savedDevice.useUDP) {
-        // msg.type = 0 = VIDEO_STREAM_TYPE_RTSP
-        // msg.type = 1 = VIDEO_STREAM_TYPE_RTPUDP
-        msg.type = 1
-        // For RTP, just send the destination UDP port instead of a full URI
-        msg.uri = this.savedDevice.useUDPPort.toString()
-      } else {
-        msg.type = 0
-        msg.uri = `rtsp://${this.savedDevice.mavStreamSelected}:8554/${this.savedDevice.device}`
-      }
-
-      // 1 = VIDEO_STREAM_STATUS_FLAGS_RUNNING
-      // 2 = VIDEO_STREAM_STATUS_FLAGS_THERMAL
-      msg.flags = 1
-      msg.framerate = this.savedDevice.fps
-      msg.resolutionH = this.savedDevice.width
-      msg.resolutionV = this.savedDevice.height
-      msg.bitrate = this.savedDevice.bitrate
-      msg.rotation = this.savedDevice.rotation
-      // Rpanion doesn't collect field of view values, so just set to zero
-      msg.hfov = 0
-      msg.name = this.savedDevice.device
-
-      this.eventEmitter.emit('videostreaminfo', msg, senderSysId, senderCompId, targetComponent)
-    } else if (data.targetComponent === minimal.MavComponent.CAMERA &&
-      packet.header.msgid === common.CommandLong.MSG_ID &&
-      data._param1 === common.CameraSettings.MSG_ID) {
-      console.log('Responding to MAVLink request for CameraSettings')
-      this.winston.info('Responding to MAVLink request for CameraSettings')
-      const senderSysId = packet.header.sysid
-      const senderCompId = minimal.MavComponent.CAMERA
-      const targetComponent = packet.header.compid
-
-      // build a CAMERA_SETTINGS packet
-      const msg = new common.CameraSettings()
-
-      msg.timeBootMs = 0
-      // Camera modes: 0 = IMAGE, 1 = VIDEO, 2 = IMAGE_SURVEY
-      if (this.savedDevice.usePhotoMode) {
-        msg.modeId = 0
-      } else {
-        msg.modeId = 1
-      }
-      msg.zoomLevel = null
-      msg.focusLevel = null
-
-      this.eventEmitter.emit('camerasettings', msg, senderSysId, senderCompId, targetComponent)
-    } else if (data.targetComponent === minimal.MavComponent.CAMERA &&
-      packet.header.msgid === common.CommandLong.MSG_ID &&
+    if (data.targetComponent === minimal.MavComponent.CAMERA && packet.header.msgid === common.CommandLong.MSG_ID) {
+      if (data._param1 === common.CameraInformation.MSG_ID) {
+        this.sendCameraInformation(packet.header.sysid, minimal.MavComponent.CAMERA, packet.header.compid)
+      } else if (data._param1 === common.VideoStreamInformation.MSG_ID && !this.savedDevice.usePhotoMode) {
+        this.sendVideoStreamInformation(packet.header.sysid, minimal.MavComponent.CAMERA, packet.header.compid)
+      } else if (data._param1 === common.CameraSettings.MSG_ID) {
+        this.sendCameraSettings(packet.header.sysid, minimal.MavComponent.CAMERA, packet.header.compid)
       // 203 = MAV_CMD_DO_DIGICAM_CONTROL
-      data.command === 203) {
-      console.log('Received DoDigicamControl command')
-      // const senderSysId = packet.header.sysid
-      // const senderCompId = minimal.MavComponent.CAMERA
-      // const targetComponent = packet.header.compid
-      this.captureStillPhoto(packet)
+      } else if (data.command === 203) {
+        console.log('Received DoDigicamControl command')
+        this.captureStillPhoto(packet)
+      }
     }
   }
 }
-
 module.exports = videoStream
