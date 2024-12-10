@@ -83,8 +83,8 @@ ntripClient.eventEmitter.on('rtcmpacket', (msg, seq) => {
 
 // Capture a single still photo when in photo mode
 app.post('/api/capturestillphoto', function (req, res) {
+  //console.log(req.body)
   vManager.captureStillPhoto()
-  console.log(req.body)
   res.end();
 })
 

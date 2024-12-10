@@ -42,6 +42,11 @@ class VideoPage extends basePage {
     fetch(`/api/videodevices`).then(response => response.json()).then(state => { this.setState(state); this.isMulticastUpdateIP(state.useUDPIP); this.loadDone() });
   }
 
+  handleUsePhotoModeChange = (event) => {
+    //this.setState({ enablePhotoMode: !this.state.enablePhotoMode });
+    this.setState({ enablePhotoMode: event.target.value==="photo" });
+  }
+
   handleVideoChange = (value) => {
     //new video device
     this.setState({ vidDeviceSelected: value, vidres: value.caps });
@@ -71,11 +76,6 @@ class VideoPage extends basePage {
   handleUseUDPChange = (event) => {
     //bitrate spinner new value
     this.setState({ UDPChecked: event.target.value==="rtp" });
-  }
-
-  handleUsePhotoModeChange = (event) => {
-    //this.setState({ enablePhotoMode: !this.state.enablePhotoMode });
-    this.setState({ enablePhotoMode: event.target.value==="photo" });
   }
 
   isMulticastUpdateIP(ip) {
@@ -132,7 +132,7 @@ class VideoPage extends basePage {
     this.setState({ mavStreamSelected: value });
   }
 
-  handleCaptureStill = (event) => {
+  handleCaptureStill = () => {
     fetch('/api/capturestillphoto', {
       method: 'POST',
       headers: {

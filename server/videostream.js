@@ -213,76 +213,122 @@ class videoStream {
         usePhotoMode
       }
 
-      // note that video device URL's are the alphanumeric characters only. So /dev/video0 -> devvideo0
-      this.populateAddresses(device.replace(/\W/g, ''))
+      // If photo mode was selected, start the libcamera server
+      if (this.savedDevice.usePhotoMode) {
+        console.log('Entering photo mode')
+        // note that video device URL's are the alphanumeric characters only. So /dev/video0 -> devvideo0
+        this.populateAddresses(device.replace(/\W/g, ''))
 
-      // rpi camera has different name under Ubuntu
-      if (await this.isUbuntu() && device === 'rpicam') {
-        device = '/dev/video0'
-        format = 'video/x-raw'
-      }
+        const args = ['./python/photomode.py']
 
-      const args = ['./python/rtsp-server.py',
-        '--video=' + device,
-        '--height=' + height,
-        '--width=' + width,
-        '--format=' + format,
-        '--bitrate=' + bitrate,
-        '--rotation=' + rotation,
-        '--fps=' + fps,
-        '--udp=' + ((useUDP === false) ? '0' : useUDPIP + ':' + useUDPPort.toString())
-      ]
+        this.deviceStream = spawn('python3', args)
 
-      if (useTimestamp) {
-        args.push('--timestamp')
-      }
-
-      this.deviceStream = spawn('python3', args)
-
-      try {
-        if (this.deviceStream === null) {
-          this.settings.setValue('videostream.active', false)
-          console.log('Error spawning rtsp-server.py')
-          this.winston.info('Error spawning rtsp-server.py')
-          return callback(null, this.active, this.deviceAddresses)
+        try {
+          if (this.deviceStream === null) {
+            this.settings.setValue('photomode.active', false)
+            console.log('Error spawning photomode.py')
+            this.winston.info('Error spawning photomode.py')
+            return callback(null, this.active, this.deviceAddresses)
+          }
+          this.settings.setValue('photomode.active', this.active)
+          this.settings.setValue('photomode.savedDevice', this.savedDevice)
+        } catch (e) {
+          console.log(e)
+          this.winston.info(e)
         }
-        this.settings.setValue('videostream.active', this.active)
-        this.settings.setValue('videostream.savedDevice', this.savedDevice)
-      } catch (e) {
-        console.log(e)
-        this.winston.info(e)
+
+        this.deviceStream.stdout.on('data', (data) => {
+          this.winston.info('photoMode: startStopStreaming() data ' + data)
+          console.log(`photoMode:  stdout: ${data}`)
+        })
+
+        this.deviceStream.stderr.on('data', (data) => {
+          this.winston.error('photoMode: startStopStreaming() err ', { message: data })
+          console.error(`photoMode:  stderr: ${data}`)
+        })
+
+        this.deviceStream.on('close', (code) => {
+          console.log(`photoMode:  process exited with code ${code}`)
+          this.winston.info('photoMode: startStopStreaming() close ' + code)
+          this.deviceStream.stdin.pause()
+          this.deviceStream.kill()
+          this.resetVideo()
+        })
+
+        console.log('Started Photo Mode of ' + device)
+        this.winston.info('Started Photo Mode of ' + device)
+      } else {
+        // Start a regular video stream
+        // note that video device URL's are the alphanumeric characters only. So /dev/video0 -> devvideo0
+        this.populateAddresses(device.replace(/\W/g, ''))
+
+        // rpi camera has different name under Ubuntu
+        if (await this.isUbuntu() && device === 'rpicam') {
+          device = '/dev/video0'
+          format = 'video/x-raw'
+        }
+
+        const args = ['./python/rtsp-server.py',
+          '--video=' + device,
+          '--height=' + height,
+          '--width=' + width,
+          '--format=' + format,
+          '--bitrate=' + bitrate,
+          '--rotation=' + rotation,
+          '--fps=' + fps,
+          '--udp=' + ((useUDP === false) ? '0' : useUDPIP + ':' + useUDPPort.toString())
+        ]
+
+        if (useTimestamp) {
+          args.push('--timestamp')
+        }
+
+        this.deviceStream = spawn('python3', args)
+
+        try {
+          if (this.deviceStream === null) {
+            this.settings.setValue('videostream.active', false)
+            console.log('Error spawning rtsp-server.py')
+            this.winston.info('Error spawning rtsp-server.py')
+            return callback(null, this.active, this.deviceAddresses)
+          }
+          this.settings.setValue('videostream.active', this.active)
+          this.settings.setValue('videostream.savedDevice', this.savedDevice)
+        } catch (e) {
+          console.log(e)
+          this.winston.info(e)
+        }
+
+        this.deviceStream.stdout.on('data', (data) => {
+          this.winston.info('startStopStreaming() data ' + data)
+          console.log(`GST stdout: ${data}`)
+        })
+
+        this.deviceStream.stderr.on('data', (data) => {
+          this.winston.error('startStopStreaming() err ', { message: data })
+          console.error(`GST stderr: ${data}`)
+        })
+
+        this.deviceStream.on('close', (code) => {
+          console.log(`GST process exited with code ${code}`)
+          this.winston.info('startStopStreaming() close ' + code)
+          this.deviceStream.stdin.pause()
+          this.deviceStream.kill()
+          this.resetVideo()
+        })
+        console.log('Started Video Streaming of ' + device)
+        this.winston.info('Started Video Streaming of ' + device)
       }
 
-      this.deviceStream.stdout.on('data', (data) => {
-        this.winston.info('startStopStreaming() data ' + data)
-        console.log(`GST stdout: ${data}`)
-      })
-
-      this.deviceStream.stderr.on('data', (data) => {
-        this.winston.error('startStopStreaming() err ', { message: data })
-        console.error(`GST stderr: ${data}`)
-      })
-
-      this.deviceStream.on('close', (code) => {
-        console.log(`GST process exited with code ${code}`)
-        this.winston.info('startStopStreaming() close ' + code)
-        this.deviceStream.stdin.pause()
-        this.deviceStream.kill()
-        this.resetVideo()
-      })
-
+      // If enabled, start the camera heartbeat in either photo or video mode
       if (this.savedDevice.useCameraHeartbeat) {
         this.startInterval()
       }
-
-      console.log('Started Video Streaming of ' + device)
-      this.winston.info('Started Video Streaming of ' + device)
 
       return callback(null, this.active, this.deviceAddresses)
     } else {
       // stop streaming
       // if mavlink advertising is on, clear the interval
-
       if (this.savedDevice.useCameraHeartbeat) {
         clearInterval(this.intervalObj)
       }
@@ -320,22 +366,22 @@ class videoStream {
 
   captureStillPhoto () {
     // Capture a single still photo
-    console.log('Received capturestillphoto event')
+    console.log('captureStillPhoto()')
     this.deviceStream.kill('SIGUSR1')
 
-    const senderSysId = this.targetSystem
-    const senderCompId = minimal.MavComponent.CAMERA
+    // const senderSysId = this.targetSystem
+    // const senderCompId = minimal.MavComponent.CAMERA
 
-    // build a CAMERA_TRIGGER packet
-    const msg = new common.CameraTrigger()
+    // // build a CAMERA_TRIGGER packet
+    // const msg = new common.CameraTrigger()
 
-    // Date.now() returns time in milliseconds
-    msg.timeUsec = BigInt(Date.now() * 1000)
-    msg.seq = this.photoSeq
+    // // Date.now() returns time in milliseconds
+    // msg.timeUsec = BigInt(Date.now() * 1000)
+    // msg.seq = this.photoSeq
 
-    this.photoSeq++
+    // this.photoSeq++
 
-    this.eventEmitter.emit('cameratrigger', msg, senderSysId, senderCompId)
+    // this.eventEmitter.emit('cameratrigger', msg, senderSysId, senderCompId)
   }
 
   sendCameraInformation (senderSysId, senderCompId, targetComponent) {
@@ -455,7 +501,7 @@ class videoStream {
       // 203 = MAV_CMD_DO_DIGICAM_CONTROL
       } else if (data.command === 203) {
         console.log('Received DoDigicamControl command')
-        //this.captureStillPhoto(packet)
+        this.captureStillPhoto(packet)
       }
     }
   }

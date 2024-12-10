@@ -28,9 +28,9 @@ VIDEO_ACTIVE = False
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Camera control server using Picamera2")
     parser.add_argument("-d", "--destination", dest="mediaPath",
-                        help="Save captured image to PATH. Default: ../media/",
+                        help="Save captured image to PATH. Default: ./media/",
                         metavar="PATH",
-                        default="../media/"
+                        default="./media/"
                         )
     parser.add_argument("-m", "--mode", choices=['photo', 'video'],
                         dest="captureMode",
