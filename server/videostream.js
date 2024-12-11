@@ -465,6 +465,7 @@ class videoStream {
   sendCameraSettings (senderSysId, senderCompId, targetComponent) {
     console.log('Responding to MAVLink request for CameraSettings')
     this.winston.info('Responding to MAVLink request for CameraSettings')
+
     // const senderSysId = packet.header.sysid
     // const senderCompId = minimal.MavComponent.CAMERA
     // const targetComponent = packet.header.compid

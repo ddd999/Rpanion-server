@@ -85,7 +85,7 @@ ntripClient.eventEmitter.on('rtcmpacket', (msg, seq) => {
 app.post('/api/capturestillphoto', function (req, res) {
   //console.log(req.body)
   vManager.captureStillPhoto()
-  res.end();
+  res.status(200).end()
 })
 
 // Got a camera heartbeat event, send to flight controller
@@ -123,7 +123,17 @@ vManager.eventEmitter.on('videostreaminfo', (msg, senderSysId, senderCompId, tar
   }
 })
 
-// TODO: add code to send CAMERA_SETTINGS
+// Got a CAMERA_SETTINGS event, send to flight controller
+vManager.eventEmitter.on('camerasettings', (msg, senderSysId, senderCompId, targetComponent) => {
+  try {
+    if (fcManager.m) {
+      fcManager.m.sendCommandAck(common.CameraSettings.MSG_ID, 0, senderSysId, senderCompId, targetComponent)
+      fcManager.m.sendData(msg, senderCompId)
+    }
+  } catch (err) {
+    console.log(err)
+  }
+})
 
 // Connecting the flight controller datastream to the logger
 // and ntrip and video
