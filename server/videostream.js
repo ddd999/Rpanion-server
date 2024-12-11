@@ -12,6 +12,7 @@ class videoStream {
     this.devices = null
     this.settings = settings
     this.savedDevice = null
+    this.photoSeq = 0
 
     this.winston = winston
 
@@ -364,24 +365,24 @@ class videoStream {
     }, 1000)
   }
 
-  captureStillPhoto () {
+  captureStillPhoto (senderSysId, senderCompId, targetComponent) {
     // Capture a single still photo
+
     console.log('captureStillPhoto()')
     this.deviceStream.kill('SIGUSR1')
 
-    // const senderSysId = this.targetSystem
-    // const senderCompId = minimal.MavComponent.CAMERA
+    // build a CAMERA_TRIGGER packet
+    const msg = new common.CameraTrigger()
 
-    // // build a CAMERA_TRIGGER packet
-    // const msg = new common.CameraTrigger()
+    // Date.now() returns time in milliseconds
+    msg.timeUsec = BigInt(Date.now() * 1000)
+    msg.seq = this.photoSeq
 
-    // // Date.now() returns time in milliseconds
-    // msg.timeUsec = BigInt(Date.now() * 1000)
-    // msg.seq = this.photoSeq
+    this.photoSeq++
 
-    // this.photoSeq++
+    this.eventEmitter.emit('digicamcontrol', senderSysId, senderCompId, targetComponent)
+    this.eventEmitter.emit('cameratrigger', msg, senderCompId)
 
-    // this.eventEmitter.emit('cameratrigger', msg, senderSysId, senderCompId)
   }
 
   sendCameraInformation (senderSysId, senderCompId, targetComponent) {
@@ -502,7 +503,7 @@ class videoStream {
       // 203 = MAV_CMD_DO_DIGICAM_CONTROL
       } else if (data.command === 203) {
         console.log('Received DoDigicamControl command')
-        this.captureStillPhoto(packet)
+        this.captureStillPhoto(packet.header.sysid, minimal.MavComponent.CAMERA, packet.header.compid)
       }
     }
   }

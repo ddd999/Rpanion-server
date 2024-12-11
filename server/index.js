@@ -82,10 +82,22 @@ ntripClient.eventEmitter.on('rtcmpacket', (msg, seq) => {
 })
 
 // Capture a single still photo when in photo mode
+// This code responds to the button on the web interface
 app.post('/api/capturestillphoto', function (req, res) {
-  //console.log(req.body)
   vManager.captureStillPhoto()
-  res.status(200).end()
+  console.log(req.body)
+  res.end();
+})
+
+// This function responds to a MAVLink command to capture a photo.
+vManager.eventEmitter.on('digicamcontrol', (senderSysId, senderCompId, targetComponent) => {
+  try {
+    if (fcManager.m) {
+      fcManager.m.sendCommandAck(203, 0, senderSysId, senderCompId, targetComponent)
+    }
+  } catch (err) {
+    console.log(err)
+  }
 })
 
 // Got a camera heartbeat event, send to flight controller
@@ -128,6 +140,17 @@ vManager.eventEmitter.on('camerasettings', (msg, senderSysId, senderCompId, targ
   try {
     if (fcManager.m) {
       fcManager.m.sendCommandAck(common.CameraSettings.MSG_ID, 0, senderSysId, senderCompId, targetComponent)
+      fcManager.m.sendData(msg, senderCompId)
+    }
+  } catch (err) {
+    console.log(err)
+  }
+})
+
+// Got a CAMERA_TRIGGER event, send to flight controller
+vManager.eventEmitter.on('cameratrigger', (msg, senderCompId) => {
+  try {
+    if (fcManager.m) {
       fcManager.m.sendData(msg, senderCompId)
     }
   } catch (err) {
