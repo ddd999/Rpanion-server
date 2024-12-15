@@ -197,72 +197,74 @@ class VideoPage extends basePage {
               </div>
         </div>
 
-        <div className="form-group row" style={{ marginBottom: '5px' }}>
-              <label className="col-sm-4 col-form-label">Streaming Mode</label>
-              <div className="col-sm-8">
-                <div className="form-check">
-                  <input className="form-check-input" type="radio" name="streamtype" value="rtp" disabled={this.state.streamingStatus} onChange={this.handleUseUDPChange} checked={this.state.UDPChecked} />
-                  <label className="form-check-label">RTP (stream to single client)</label>
-                </div>
-                <div className="form-check">
-                  <input className="form-check-input" type="radio" name="streamtype" value="rtsp" disabled={this.state.streamingStatus} onChange={this.handleUseUDPChange} checked={!this.state.UDPChecked} />
-                  <label className="form-check-label">RTSP (multiple clients can connect to stream)</label>
+        <div className = "videostreaming" style = {{display: !this.state.enablePhotoMode ? "block" : "none"}}>
+          <div className="form-group row" style={{marginBottom: '5px'} }>
+                <label className="col-sm-4 col-form-label">Streaming Mode</label>
+                <div className="col-sm-8">
+                  <div className="form-check">
+                    <input className="form-check-input" type="radio" name="streamtype" value="rtp" disabled={this.state.streamingStatus} onChange={this.handleUseUDPChange} checked={this.state.UDPChecked} />
+                    <label className="form-check-label">RTP (stream to single client)</label>
+                  </div>
+                  <div className="form-check">
+                    <input className="form-check-input" type="radio" name="streamtype" value="rtsp" disabled={this.state.streamingStatus} onChange={this.handleUseUDPChange} checked={!this.state.UDPChecked} />
+                    <label className="form-check-label">RTSP (multiple clients can connect to stream)</label>
+                  </div>
                 </div>
               </div>
-            </div>
 
-        <div className="form-group row" style={{ marginBottom: '5px' }}>
-          <label className="col-sm-4 col-form-label">Device</label>
-          <div className="col-sm-8">
-            <Select isDisabled={this.state.streamingStatus} onChange={this.handleVideoChange} options={this.state.dev} value={this.state.vidDeviceSelected} />
-          </div>
-        </div>
-        <div className="form-group row" style={{ marginBottom: '5px' }}>
-          <label className="col-sm-4 col-form-label">Resolution</label>
-          <div className="col-sm-8">
-            <Select isDisabled={this.state.streamingStatus} options={this.state.vidres} onChange={this.handleResChange} value={this.state.vidResSelected} />
-          </div>
-        </div>
-        <div style={{ display: (typeof this.state.vidResSelected !== 'undefined' && this.state.vidResSelected.format !== "video/x-h264") ? "block" : "none" }}>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
-            <label className="col-sm-4 col-form-label">Rotation</label>
+            <label className="col-sm-4 col-form-label">Device</label>
             <div className="col-sm-8">
-              <Select isDisabled={this.state.streamingStatus} options={this.state.rotations} onChange={this.handleRotChange} value={this.state.rotSelected} />
+              <Select isDisabled={this.state.streamingStatus} onChange={this.handleVideoChange} options={this.state.dev} value={this.state.vidDeviceSelected} />
             </div>
           </div>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
-            <label className="col-sm-4 col-form-label">Maximum Bitrate</label>
+            <label className="col-sm-4 col-form-label">Resolution</label>
             <div className="col-sm-8">
-              <input disabled={this.state.streamingStatus} type="number" name="bitrate" min="50" max="50000" step="10" onChange={this.handleBitrateChange} value={this.state.bitrate} />kbps
+              <Select isDisabled={this.state.streamingStatus} options={this.state.vidres} onChange={this.handleResChange} value={this.state.vidResSelected} />
+            </div>
+          </div>
+          <div style={{ display: (typeof this.state.vidResSelected !== 'undefined' && this.state.vidResSelected.format !== "video/x-h264") ? "block" : "none" }}>
+            <div className="form-group row" style={{ marginBottom: '5px' }}>
+              <label className="col-sm-4 col-form-label">Rotation</label>
+              <div className="col-sm-8">
+                <Select isDisabled={this.state.streamingStatus} options={this.state.rotations} onChange={this.handleRotChange} value={this.state.rotSelected} />
+              </div>
+            </div>
+            <div className="form-group row" style={{ marginBottom: '5px' }}>
+              <label className="col-sm-4 col-form-label">Maximum Bitrate</label>
+              <div className="col-sm-8">
+                <input disabled={this.state.streamingStatus} type="number" name="bitrate" min="50" max="50000" step="10" onChange={this.handleBitrateChange} value={this.state.bitrate} />kbps
+              </div>
+            </div>
+            <div className="form-group row" style={{ marginBottom: '5px' }}>
+            <label className="col-sm-4 col-form-label">Timestamp Overlay</label>
+            <div className="col-sm-8">
+              <input type="checkbox" disabled={this.state.streamingStatus} onChange={this.handleTimestampChange} checked={this.state.timestamp} />
+            </div>
             </div>
           </div>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
-          <label className="col-sm-4 col-form-label">Timestamp Overlay</label>
-          <div className="col-sm-8">
-            <input type="checkbox" disabled={this.state.streamingStatus} onChange={this.handleTimestampChange} checked={this.state.timestamp} />
-          </div>
-          </div>
-        </div>
-        <div className="form-group row" style={{ marginBottom: '5px' }}>
-          <label className="col-sm-4 col-form-label">Framerate</label>
-          <div className="col-sm-8" style={{ display: (this.state.FPSMax === 0) ? "block" : "none" }}>
-            <Select isDisabled={this.state.streamingStatus} options={this.state.fps} value={this.state.fpsSelected} onChange={this.handleFPSChangeSelect} />
-          </div>
-          <div className="col-sm-8" style={{ display: (this.state.FPSMax !== 0) ? "block" : "none" }}>
-            <input disabled={this.state.streamingStatus} type="number" name="fps" min="1" max={this.state.FPSMax} step="1" onChange={this.handleFPSChange} value={this.state.fpsSelected} />fps (max: {this.state.FPSMax})
-          </div>
-        </div>
-        <div style={{ display: (this.state.UDPChecked) ? "block" : "none" }}>
-          <div className="form-group row" style={{ marginBottom: '5px' }}>
-            <label className="col-sm-4 col-form-label ">Destination IP</label>
-            <div className="col-sm-8">
-              <input type="text" name="ipaddress" disabled={!this.state.UDPChecked || this.state.streamingStatus} value={this.state.useUDPIP} onChange={this.handleUDPIPChange} />
+            <label className="col-sm-4 col-form-label">Framerate</label>
+            <div className="col-sm-8" style={{ display: (this.state.FPSMax === 0) ? "block" : "none" }}>
+              <Select isDisabled={this.state.streamingStatus} options={this.state.fps} value={this.state.fpsSelected} onChange={this.handleFPSChangeSelect} />
+            </div>
+            <div className="col-sm-8" style={{ display: (this.state.FPSMax !== 0) ? "block" : "none" }}>
+              <input disabled={this.state.streamingStatus} type="number" name="fps" min="1" max={this.state.FPSMax} step="1" onChange={this.handleFPSChange} value={this.state.fpsSelected} />fps (max: {this.state.FPSMax})
             </div>
           </div>
-          <div className="form-group row" style={{ marginBottom: '5px' }}>
-            <label className="col-sm-4 col-form-label">Destination Port</label>
-            <div className="col-sm-8">
-              <input type="text" name="port" disabled={!this.state.UDPChecked || this.state.streamingStatus} value={this.state.useUDPPort} onChange={this.handleUDPPortChange} />
+          <div style={{ display: (this.state.UDPChecked) ? "block" : "none" }}>
+            <div className="form-group row" style={{ marginBottom: '5px' }}>
+              <label className="col-sm-4 col-form-label ">Destination IP</label>
+              <div className="col-sm-8">
+                <input type="text" name="ipaddress" disabled={!this.state.UDPChecked || this.state.streamingStatus} value={this.state.useUDPIP} onChange={this.handleUDPIPChange} />
+              </div>
+            </div>
+            <div className="form-group row" style={{ marginBottom: '5px' }}>
+              <label className="col-sm-4 col-form-label">Destination Port</label>
+              <div className="col-sm-8">
+                <input type="text" name="port" disabled={!this.state.UDPChecked || this.state.streamingStatus} value={this.state.useUDPPort} onChange={this.handleUDPPortChange} />
+              </div>
             </div>
           </div>
         </div>
@@ -284,7 +286,7 @@ class VideoPage extends basePage {
           <input type="checkbox" disabled={this.state.streamingStatus} checked={this.state.enableCameraHeartbeat} onChange={this.handleUseCameraHeartbeatChange} />
           </div>
         </div>
-        <div style={{ display: (this.state.enableCameraHeartbeat && (!this.state.UDPChecked)) ? "block" : "none" }}>
+        <div style={{ display: (this.state.enableCameraHeartbeat && !this.state.UDPChecked && !this.state.enablePhotoMode) ? "block" : "none" }}>
           <div className="form-group row" style={{ marginBottom: '5px' } }>
               <label className="col-sm-4 col-form-label">Video source IP Address</label>
               <div className="col-sm-8">
@@ -312,8 +314,8 @@ class VideoPage extends basePage {
         </div>
 
         <br />
-        <h3 style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>Connection strings for video stream</h3>
-        <Accordion defaultActiveKey="0" style={{ display: (this.state.streamingStatus && !this.state.UDPChecked) ? "block" : "none" }}>
+        <h3 style={{ display: (this.state.streamingStatus && !this.state.enablePhotoMode) ? "block" : "none" }}>Connection strings for video stream</h3>
+        <Accordion defaultActiveKey="0" style={{ display: (this.state.streamingStatus && !this.state.UDPChecked  && !this.state.enablePhotoMode) ? "block" : "none" }}>
           <Accordion.Item eventKey="0">
             <Accordion.Header>
               + RTSP Streaming Addresses (for VLC, etc)
