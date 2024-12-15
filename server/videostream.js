@@ -368,7 +368,7 @@ class videoStream {
   captureStillPhoto (senderSysId, senderCompId, targetComponent) {
     // Capture a single still photo
 
-    console.log('captureStillPhoto()')
+    console.log('videostream.js: captureStillPhoto() called')
     this.deviceStream.kill('SIGUSR1')
 
     // build a CAMERA_TRIGGER packet

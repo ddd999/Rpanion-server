@@ -85,7 +85,6 @@ ntripClient.eventEmitter.on('rtcmpacket', (msg, seq) => {
 // This code responds to the button on the web interface
 app.post('/api/capturestillphoto', function (req, res) {
   vManager.captureStillPhoto()
-  console.log(req.body)
   res.end();
 })
 
