@@ -88,6 +88,13 @@ app.post('/api/capturestillphoto', function (req, res) {
   res.end();
 })
 
+// Toggle local video recording on/off
+// This code responds to the button on the web interface
+app.post('/api/togglevideo', function (req, res) {
+  vManager.toggleVideo()
+  res.end();
+})
+
 // This function responds to a MAVLink command to capture a photo.
 vManager.eventEmitter.on('digicamcontrol', (senderSysId, senderCompId, targetComponent) => {
   try {

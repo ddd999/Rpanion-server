@@ -142,6 +142,16 @@ class VideoPage extends basePage {
     });
   }
 
+  handleToggleVideo = () => {
+    fetch('/api/togglevideo', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      }
+    });
+  }
+
   handleStreaming = () => {
     //user clicked start/stop streaming
     this.setState({ waiting: true }, () => {
@@ -277,6 +287,15 @@ class VideoPage extends basePage {
           <div className="form-group row" style={{ marginBottom: '5px' }}>
             <div className="col-sm-8" style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>
               <Button onClick={this.handleCaptureStill} className="btn btn-primary" >Take Photo Now</Button>
+            </div>
+          </div>
+          <br/>
+        </div>
+
+        <div className = "photomode" style = {{display: ((this.state.cameraMode === "video") ? "block" : "none")}}>
+          <div className="form-group row" style={{ marginBottom: '5px' }}>
+            <div className="col-sm-8" style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>
+              <Button onClick={this.handleToggleVideo} className="btn btn-primary" >Start/stop Video Recording</Button>
             </div>
           </div>
           <br/>

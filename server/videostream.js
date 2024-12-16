@@ -220,7 +220,8 @@ class videoStream {
         // note that video device URL's are the alphanumeric characters only. So /dev/video0 -> devvideo0
         this.populateAddresses(device.replace(/\W/g, ''))
 
-        const args = ['./python/photomode.py']
+        const args = ['./python/photomode.py',
+          '--mode=' + "photo",]
 
         this.deviceStream = spawn('python3', args)
 
@@ -258,6 +259,52 @@ class videoStream {
 
         console.log('Started Photo Mode of ' + device)
         this.winston.info('Started Photo Mode of ' + device)
+
+      } else if (this.savedDevice.cameraMode === "video"){
+        console.log('Entering video mode')
+        // note that video device URL's are the alphanumeric characters only. So /dev/video0 -> devvideo0
+        this.populateAddresses(device.replace(/\W/g, ''))
+
+        const args = ['./python/photomode.py',
+          '--mode=' + "video",]
+
+        this.deviceStream = spawn('python3', args)
+
+        try {
+          if (this.deviceStream === null) {
+            this.settings.setValue('photomode.active', false)
+            console.log('Error spawning photomode.py')
+            this.winston.info('Error spawning photomode.py')
+            return callback(null, this.active, this.deviceAddresses)
+          }
+          this.settings.setValue('videomode.active', this.active)
+          this.settings.setValue('videomode.savedDevice', this.savedDevice)
+        } catch (e) {
+          console.log(e)
+          this.winston.info(e)
+        }
+
+        this.deviceStream.stdout.on('data', (data) => {
+          this.winston.info('videoMode: startStopStreaming() data ' + data)
+          console.log(`videoMode:  stdout: ${data}`)
+        })
+
+        this.deviceStream.stderr.on('data', (data) => {
+          this.winston.error('videoMode: startStopStreaming() err ', { message: data })
+          console.error(`videoMode:  stderr: ${data}`)
+        })
+
+        this.deviceStream.on('close', (code) => {
+          console.log(`videoMode:  process exited with code ${code}`)
+          this.winston.info('videoMode: startStopStreaming() close ' + code)
+          this.deviceStream.stdin.pause()
+          this.deviceStream.kill()
+          this.resetVideo()
+        })
+
+        console.log('Started Video Mode of ' + device)
+        this.winston.info('Started Video Mode of ' + device)
+
       } else {
         // Start a regular video stream
         // note that video device URL's are the alphanumeric characters only. So /dev/video0 -> devvideo0
@@ -382,6 +429,16 @@ class videoStream {
 
     this.eventEmitter.emit('digicamcontrol', senderSysId, senderCompId, targetComponent)
     this.eventEmitter.emit('cameratrigger', msg, senderCompId)
+
+  }
+
+  toggleVideo () {
+    // Toggle local video recording on/off
+
+    console.log('videostream.js: toggleVideo() called')
+    this.deviceStream.kill('SIGUSR1')
+
+    //TODO: add MAVLink control option
 
   }
 

@@ -28,9 +28,9 @@ VIDEO_ACTIVE = False
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Camera control server using Picamera2")
     parser.add_argument("-d", "--destination", dest="mediaPath",
-                        help="Save captured image to PATH. Default: ./media/",
+                        help="Save captured image to PATH. Default: /home/pi/Rpanion-server/media/",
                         metavar="PATH",
-                        default="./media/"
+                        default="/home/pi/Rpanion-server/media/"
                         )
     parser.add_argument("-m", "--mode", choices=['photo', 'video'],
                         dest="captureMode",
@@ -123,33 +123,32 @@ def startstop_video():
         print("Recording to ", filepath)
 
         VIDEO_ACTIVE = True
-        output_video = picam2_vid.start_recording(encoder, filepath)
+        picam2_vid.start_recording(encoder, filepath)
 
 try:
     # Wait for a signal to arrive
     while True:
-        if (GOT_SIGNAL and (captureMode == "photo")):
+        if (GOT_SIGNAL):
             GOT_SIGNAL = False
 
             # Get the amount of free disk space, in bytes
             freeDiskSpace = shutil.disk_usage(mediaPath)[2]
 
             if freeDiskSpace < minFreeSpace:
-                print(f"Free disk space is below the minimum of {minFreeSpace} MiB. Image not recorded.")
+                print(f"Free disk space is {(int)(freeDiskSpace / 10**6)} MB, which is less than the minimum of {(int)(minFreeSpace / 10**6)} MB. No data recorded.")
             else:
-                print("Received signal.SIGUSR1. Capturing photo.")
-                filename = time.strftime("RPN%Y%m%d_%H%M%S.jpg")
-                filepath = os.path.join(mediaPath, filename)
-                print(filepath)
-                output_orig = picam2_still.capture_file(filepath)
+                if(captureMode == "photo"):
+                    print("Received signal.SIGUSR1. Capturing photo.")
+                    filename = time.strftime("RPN%Y%m%d_%H%M%S.jpg")
+                    filepath = os.path.join(mediaPath, filename)
+                    print(filepath)
+                    output_orig = picam2_still.capture_file(filepath)
 
-        elif (GOT_SIGNAL and (captureMode == "video")):
-            GOT_SIGNAL = False
-            print("Received signal.SIGUSR1.")
-            startstop_video()
+                elif (captureMode == "video"):
+                    print("Received signal.SIGUSR1. Toggling video on/off")
+                    startstop_video()
 
         # Wait for a signal
         signal.pause()
-        #loop.run()
 except:
     print("Exiting Photo/Video Server")
