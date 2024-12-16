@@ -469,7 +469,7 @@ app.get('/api/softwareinfo', (req, res) => {
 
 app.get('/api/videodevices', (req, res) => {
   vManager.populateAddresses()
-  vManager.getVideoDevices((err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI, selUsePhotoMode) => {
+  vManager.getVideoDevices((err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI, selCameraMode) => {
     if (!err) {
       res.setHeader('Content-Type', 'application/json')
       res.send(JSON.stringify({
@@ -492,7 +492,7 @@ app.get('/api/videodevices', (req, res) => {
         FPSMax: FPSMax,
         enableCameraHeartbeat: useCameraHeartbeat,
         mavStreamSelected: selMavURI,
-        enablePhotoMode: selUsePhotoMode
+        cameraMode: selCameraMode
       }))
     } else {
       res.setHeader('Content-Type', 'application/json')
@@ -748,7 +748,7 @@ app.post('/api/startstopvideo', [
   check('fps').if(check('active').isIn([true])).isInt({ min: -1, max: 100 }),
   check('rotation').if(check('active').isIn([true])).isInt().isIn([0, 90, 180, 270]),
   check('useCameraHeartbeat').if(check('active').isIn([true])).isBoolean(),
-  check('usePhotoMode').if(check('active').isIn([true])).isBoolean()
+  check('cameraMode').if(check('active').isIn([true])).isIn(['streaming', 'photo', 'video']),
   ], (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -757,7 +757,7 @@ app.post('/api/startstopvideo', [
     return res.status(422).json(ret)
   }
   // user wants to start/stop video streaming
-  vManager.startStopStreaming(req.body.active, req.body.device, req.body.height, req.body.width, req.body.format, req.body.rotation, req.body.bitrate, req.body.fps, req.body.useUDP, req.body.useUDPIP, req.body.useUDPPort, req.body.useTimestamp, req.body.useCameraHeartbeat, req.body.mavStreamSelected, req.body.usePhotoMode, (err, status, addresses) => {
+  vManager.startStopStreaming(req.body.active, req.body.device, req.body.height, req.body.width, req.body.format, req.body.rotation, req.body.bitrate, req.body.fps, req.body.useUDP, req.body.useUDPIP, req.body.useUDPPort, req.body.useTimestamp, req.body.useCameraHeartbeat, req.body.mavStreamSelected, req.body.cameraMode, (err, status, addresses) => {
     if (!err) {
       res.setHeader('Content-Type', 'application/json')
       const ret = { streamingStatus: status, streamAddresses: addresses }

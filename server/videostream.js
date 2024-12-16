@@ -36,7 +36,7 @@ class videoStream {
             this.savedDevice.width, this.savedDevice.format,
             this.savedDevice.rotation, this.savedDevice.bitrate, this.savedDevice.fps, this.savedDevice.useUDP,
             this.savedDevice.useUDPIP, this.savedDevice.useUDPPort, this.savedDevice.useTimestamp, this.savedDevice.useCameraHeartbeat, this.savedDevice.mavStreamSelected,
-            this.savedDevice.usePhotoMode,
+            this.savedDevice.cameraMode,
             (err) => {
               if (err) {
                 // failed setup, reset settings
@@ -67,7 +67,7 @@ class videoStream {
   // video streaming
   getVideoDevices (callback) {
     // get all video device details
-    // callback is: err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI, selUsePhotoMode
+    // callback is: err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI, selCameraMode
     exec('python3 ./python/gstcaps.py', (error, stdout, stderr) => {
       const warnstrings = ['DeprecationWarning', 'gst_element_message_full_with_details', 'camera_manager.cpp', 'Unsupported V4L2 pixel format']
       if (stderr && !warnstrings.some(wrn => stderr.includes(wrn))) {
@@ -86,7 +86,7 @@ class videoStream {
           return callback(null, this.devices, this.active, this.devices[0], this.devices[0].caps[0],
             { label: '0°', value: 0 }, 1100, fpsSelected, false, '127.0.0.1', 5400, false,
             (this.devices[0].caps[0].fps !== undefined) ? this.devices[0].caps[0].fps : [],
-            this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, { label: '127.0.0.1', value: 0 }, false)
+            this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, { label: '127.0.0.1', value: 0 }, 'streaming')
         } else {
           // format saved settings
           const seldevice = this.devices.filter(it => it.value === this.savedDevice.device)
@@ -98,7 +98,7 @@ class videoStream {
             return callback(null, this.devices, this.active, this.devices[0], this.devices[0].caps[0],
               { label: '0°', value: 0 }, 1100, fpsSelected, false, '127.0.0.1', 5400, false,
               (this.devices[0].caps[0].fps !== undefined) ? this.devices[0].caps[0].fps : [],
-              this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, { label: '127.0.0.1', value: 0 }, false)
+              this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, { label: '127.0.0.1', value: 0 }, 'streaming')
           }
           const selRes = seldevice[0].caps.filter(it => it.value === this.savedDevice.width.toString() + 'x' + this.savedDevice.height.toString() + 'x' + this.savedDevice.format.toString().split('/')[1])
           let selFPS = this.savedDevice.fps
@@ -114,7 +114,7 @@ class videoStream {
               this.savedDevice.useUDPPort, this.savedDevice.useTimestamp, (selRes[0].fps !== undefined) ? selRes[0].fps : [],
               selRes[0].fpsmax, seldevice[0].caps, this.savedDevice.useCameraHeartbeat,
               { label: this.savedDevice.mavStreamSelected.toString(), value: this.savedDevice.mavStreamSelected },
-              this.savedDevice.usePhotoMode
+              this.savedDevice.cameraMode
             )
           } else {
             // bad settings
@@ -124,7 +124,7 @@ class videoStream {
             return callback(null, this.devices, this.active, this.devices[0], this.devices[0].caps[0],
               { label: '0°', value: 0 }, 1100, fpsSelected, false, '127.0.0.1', 5400, false,
               (this.devices[0].caps[0].fps !== undefined) ? this.devices[0].caps[0].fps : [],
-              this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, { label: '127.0.0.1', value: 0 }, false)
+              this.devices[0].caps[0].fpsmax, this.devices[0].caps, false, { label: '127.0.0.1', value: 0 }, 'streaming')
           }
         }
       }
@@ -169,7 +169,7 @@ class videoStream {
     return iface
   }
 
-  async startStopStreaming (active, device, height, width, format, rotation, bitrate, fps, useUDP, useUDPIP, useUDPPort, useTimestamp, useCameraHeartbeat, mavStreamSelected, usePhotoMode, callback) {
+  async startStopStreaming (active, device, height, width, format, rotation, bitrate, fps, useUDP, useUDPIP, useUDPPort, useTimestamp, useCameraHeartbeat, mavStreamSelected, cameraMode, callback) {
     // if current state same, don't do anything
     if (this.active === active) {
       console.log('Video current same')
@@ -211,11 +211,11 @@ class videoStream {
         useTimestamp,
         useCameraHeartbeat,
         mavStreamSelected,
-        usePhotoMode
+        cameraMode
       }
 
       // If photo mode was selected, start the libcamera server
-      if (this.savedDevice.usePhotoMode) {
+      if (this.savedDevice.cameraMode === "photo") {
         console.log('Entering photo mode')
         // note that video device URL's are the alphanumeric characters only. So /dev/video0 -> devvideo0
         this.populateAddresses(device.replace(/\W/g, ''))
@@ -408,7 +408,7 @@ class videoStream {
     msg.resolutionV = this.savedDevice.height
     msg.lensId = 0
     // 256 = CAMERA_CAP_FLAGS_HAS_VIDEO_STREAM (hard-coded for now until Rpanion gains more camera capabilities)
-    if (this.savedDevice.usePhotoMode) {
+    if (this.savedDevice.cameraMode === "photo") {
       // 2 = CAMERA_CAP_FLAGS_CAPTURE_IMAGE
       msg.flags = 2
     } else {
@@ -476,7 +476,7 @@ class videoStream {
 
     msg.timeBootMs = 0
     // Camera modes: 0 = IMAGE, 1 = VIDEO, 2 = IMAGE_SURVEY
-    if (this.savedDevice.usePhotoMode) {
+    if (this.savedDevice.cameraMode === "photo") {
       msg.modeId = 0
     } else {
       msg.modeId = 1
@@ -496,7 +496,7 @@ class videoStream {
     if (data.targetComponent === minimal.MavComponent.CAMERA && packet.header.msgid === common.CommandLong.MSG_ID) {
       if (data._param1 === common.CameraInformation.MSG_ID) {
         this.sendCameraInformation(packet.header.sysid, minimal.MavComponent.CAMERA, packet.header.compid)
-      } else if (data._param1 === common.VideoStreamInformation.MSG_ID && !this.savedDevice.usePhotoMode) {
+      } else if (data._param1 === common.VideoStreamInformation.MSG_ID && (this.savedDevice.cameraMode === "streaming")) {
         this.sendVideoStreamInformation(packet.header.sysid, minimal.MavComponent.CAMERA, packet.header.compid)
       } else if (data._param1 === common.CameraSettings.MSG_ID) {
         this.sendCameraSettings(packet.header.sysid, minimal.MavComponent.CAMERA, packet.header.compid)

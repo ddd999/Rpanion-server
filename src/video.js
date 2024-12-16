@@ -34,7 +34,7 @@ class VideoPage extends basePage {
       multicastString: " ",
       enableCameraHeartbeat: false,
       mavStreamSelected: this.props.mavStreamSelected,
-      enablePhotoMode: false
+      cameraMode: "streaming"
     }
   }
 
@@ -43,8 +43,8 @@ class VideoPage extends basePage {
   }
 
   handleUsePhotoModeChange = (event) => {
-    //this.setState({ enablePhotoMode: !this.state.enablePhotoMode });
-    this.setState({ enablePhotoMode: event.target.value==="photo" });
+    //const newCameraMode = event.target.value;
+    this.setState({ cameraMode: event.target.value });
   }
 
   handleVideoChange = (value) => {
@@ -167,7 +167,7 @@ class VideoPage extends basePage {
           useTimestamp: this.state.timestamp,
           useCameraHeartbeat: this.state.enableCameraHeartbeat,
           mavStreamSelected: this.state.mavStreamSelected.value,
-          usePhotoMode: this.state.enablePhotoMode
+          cameraMode: this.state.cameraMode
         })
       }).then(response => response.json()).then(state => { this.setState(state); this.setState({ waiting: false }) });
     });
@@ -187,17 +187,21 @@ class VideoPage extends basePage {
               <label className="col-sm-4 col-form-label">Camera Mode</label>
               <div className="col-sm-8">
                 <div className="form-check">
-                  <input className="form-check-input" type="radio" name="cameramode" value="streaming" disabled={this.state.streamingStatus} onChange={this.handleUsePhotoModeChange} checked={!this.state.enablePhotoMode} />
+                  <input className="form-check-input" type="radio" name="cameramode" value="streaming" disabled={this.state.streamingStatus} onChange={this.handleUsePhotoModeChange} checked={this.state.cameraMode === "streaming" } />
                   <label className="form-check-label">Streaming Video (Default) </label>
                 </div>
                 <div className="form-check">
-                  <input className="form-check-input" type="radio" name="cameramode" value="photo" disabled={this.state.streamingStatus} onChange={this.handleUsePhotoModeChange} checked={this.state.enablePhotoMode} />
+                  <input className="form-check-input" type="radio" name="cameramode" value="photo" disabled={this.state.streamingStatus} onChange={this.handleUsePhotoModeChange} checked={this.state.cameraMode === "photo" } />
                   <label className="form-check-label">Still Photo Capture</label>
+                </div>
+                <div className="form-check">
+                  <input className="form-check-input" type="radio" name="cameramode" value="video" disabled={this.state.streamingStatus} onChange={this.handleUsePhotoModeChange} checked={this.state.cameraMode === "video" } />
+                  <label className="form-check-label">Local Video Recording</label>
                 </div>
               </div>
         </div>
 
-        <div className = "videostreaming" style = {{display: !this.state.enablePhotoMode ? "block" : "none"}}>
+        <div className = "videostreaming" style = {{display: (this.state.cameraMode === "streaming") ? "block" : "none"}}>
           <div className="form-group row" style={{marginBottom: '5px'} }>
                 <label className="col-sm-4 col-form-label">Streaming Mode</label>
                 <div className="col-sm-8">
@@ -269,7 +273,7 @@ class VideoPage extends basePage {
           </div>
         </div>
 
-        <div className = "photomode" style = {{display: (this.state.enablePhotoMode ? "block" : "none")}}>
+        <div className = "photomode" style = {{display: ((this.state.cameraMode === "photo") ? "block" : "none")}}>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
             <div className="col-sm-8" style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>
               <Button onClick={this.handleCaptureStill} className="btn btn-primary" >Take Photo Now</Button>
@@ -286,7 +290,7 @@ class VideoPage extends basePage {
           <input type="checkbox" disabled={this.state.streamingStatus} checked={this.state.enableCameraHeartbeat} onChange={this.handleUseCameraHeartbeatChange} />
           </div>
         </div>
-        <div style={{ display: (this.state.enableCameraHeartbeat && !this.state.UDPChecked && !this.state.enablePhotoMode) ? "block" : "none" }}>
+        <div style={{ display: (this.state.enableCameraHeartbeat && !this.state.UDPChecked && this.state.cameraMode === "streaming") ? "block" : "none" }}>
           <div className="form-group row" style={{ marginBottom: '5px' } }>
               <label className="col-sm-4 col-form-label">Video source IP Address</label>
               <div className="col-sm-8">
@@ -296,7 +300,7 @@ class VideoPage extends basePage {
         </div>
         <br/>
 
-        <div className = "videostreaming" style = {{display: !this.state.enablePhotoMode ? "block" : "none"}}>
+        <div className = "videostreaming" style = {{display: (this.state.cameraMode === "streaming") ? "block" : "none"}}>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
             <div className="col-sm-8">
               <Button onClick={this.handleStreaming} className="btn btn-primary">{this.state.streamingStatus ? "Stop Streaming" : "Start Streaming"}</Button>
@@ -304,7 +308,7 @@ class VideoPage extends basePage {
             <br/>
           </div>
         </div>
-        <div className = "mavlink" style = {{display: this.state.enablePhotoMode ? "block" : "none"}}>
+        <div className = "mavlink" style = {{display: (this.state.cameraMode != "streaming") ? "block" : "none"}}>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
             <div className="col-sm-8">
               <Button onClick={this.handleStreaming} className="btn btn-primary">{this.state.streamingStatus ? "Stop MAVLink Camera Interface" : "Start MAVLink Camera Interface"}</Button>
@@ -314,8 +318,8 @@ class VideoPage extends basePage {
         </div>
 
         <br />
-        <h3 style={{ display: (this.state.streamingStatus && !this.state.enablePhotoMode) ? "block" : "none" }}>Connection strings for video stream</h3>
-        <Accordion defaultActiveKey="0" style={{ display: (this.state.streamingStatus && !this.state.UDPChecked  && !this.state.enablePhotoMode) ? "block" : "none" }}>
+        <h3 style={{ display: (this.state.streamingStatus && (this.state.cameraMode === "streaming")) ? "block" : "none" }}>Connection strings for video stream</h3>
+        <Accordion defaultActiveKey="0" style={{ display: (this.state.streamingStatus && !this.state.UDPChecked  && (this.state.cameraMode === "streaming")) ? "block" : "none" }}>
           <Accordion.Item eventKey="0">
             <Accordion.Header>
               + RTSP Streaming Addresses (for VLC, etc)
