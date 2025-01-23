@@ -34,7 +34,7 @@ class VideoPage extends basePage {
       multicastString: " ",
       enableCameraHeartbeat: false,
       mavStreamSelected: this.props.mavStreamSelected,
-      cameraMode: "streaming"
+      cameraMode: this.props.cameraMode
     }
   }
 
@@ -184,7 +184,7 @@ class VideoPage extends basePage {
   }
 
   renderTitle() {
-    return "Video Streaming";
+    return "Video and Photo";
   }
 
   renderContent() {

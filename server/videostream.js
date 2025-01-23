@@ -12,6 +12,8 @@ class videoStream {
     this.devices = null
     this.settings = settings
     this.savedDevice = null
+
+    this.stillDevices = null
     this.photoSeq = 0
 
     this.winston = winston
@@ -30,25 +32,41 @@ class videoStream {
     // need to scan for video devices first though
     if (this.active) {
       this.active = false
-      this.getVideoDevices((error) => {
-        if (!error) {
-          this.startStopStreaming(true, this.savedDevice.device, this.savedDevice.height,
-            this.savedDevice.width, this.savedDevice.format,
-            this.savedDevice.rotation, this.savedDevice.bitrate, this.savedDevice.fps, this.savedDevice.useUDP,
-            this.savedDevice.useUDPIP, this.savedDevice.useUDPPort, this.savedDevice.useTimestamp, this.savedDevice.useCameraHeartbeat, this.savedDevice.mavStreamSelected,
-            this.savedDevice.cameraMode,
-            (err) => {
-              if (err) {
-                // failed setup, reset settings
-                console.log('Reset video4')
-                this.resetVideo()
+      this.getVideoDevices((videoError) => {
+        if (!videoError) {
+          this.getStillDevices((stillError) => {
+            if (!stillError) {
+              this.startStopStreaming(
+                true,
+                this.savedDevice.device, this.savedDevice.height,
+                this.savedDevice.width, this.savedDevice.format,
+                this.savedDevice.rotation, this.savedDevice.bitrate,
+                this.savedDevice.fps, this.savedDevice.useUDP,
+                this.savedDevice.useUDPIP, this.savedDevice.useUDPPort,
+                this.savedDevice.useTimestamp,
+                this.savedDevice.useCameraHeartbeat,
+                this.savedDevice.mavStreamSelected,
+                this.savedDevice.cameraMode,
+                (streamError) => {
+                  if (streamError) {
+                    // failed setup, reset settings
+                    console.log('Reset video4')
+                    this.resetVideo()
+                  }
               }
-            })
-        } else {
+            );
+      } else {
+        // Failed to get still devices, reset settings
+        console.log('Reset photo mode');
+        this.resetVideo();
+        console.error(stillError)
+      }
+    });
+} else {
           // failed setup, reset settings
           console.log('Reset video3')
           this.resetVideo()
-          console.log(error)
+          console.log(videoError)
         }
       })
     }
@@ -66,6 +84,10 @@ class videoStream {
 
   // video streaming
   getVideoDevices (callback) {
+
+    console.log("Entered getVideoDevices()")
+    this.winston.info("Entered getVideoDevices()")
+
     // get all video device details
     // callback is: err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI, selCameraMode
     exec('python3 ./python/gstcaps.py', (error, stdout, stderr) => {
@@ -130,6 +152,50 @@ class videoStream {
       }
     })
   }
+
+// Still photo recording
+getStillDevices(callback) {
+
+  console.log("Entered getStillDevices()")
+  this.winston.info("Entered getStillDevices()")
+
+  const exec = require('child_process').exec;
+
+  exec('python3 ./python/getcamcaps.py', (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error executing getcamcaps.py: ${stderr || error.message}`);
+      this.winston.error('Error in getStillDevices()', { message: stderr || error.message });
+      return callback(stderr || error.message);
+    }
+
+    try {
+      console.log(stdout)
+      this.winston.info(stdout)
+      this.stillDevices = JSON.parse(stdout); // Parse JSON output
+      console.log(this.stillDevices)
+      this.winston.info('Still Camera Devices:', this.stillDevices);
+
+      // Default selection: first device
+      const defaultStillDevice = this.stillDevices[0] || null;
+      if (!defaultStillDevice) {
+        return callback('No still camera devices found');
+      }
+
+      // Return devices and default settings
+      return callback(
+        null,
+        this.stillDevices, // All devices
+        this.active || false, // Current active state
+        defaultStillDevice, // Selected device (default to the first device)
+        defaultStillDevice // Selected resolution (same as selected device in this context)
+      );
+    } catch (e) {
+      console.error('Failed to parse JSON output:', e);
+      this.winston.error('JSON Parsing Error in getStillDevices()', { message: e.message });
+      return callback('Invalid JSON output from getcamcaps.py');
+    }
+  });
+}
 
   // reset and save the video settings
   resetVideo () {
@@ -217,6 +283,7 @@ class videoStream {
       // If photo mode was selected, start the libcamera server
       if (this.savedDevice.cameraMode === "photo") {
         console.log('Entering photo mode')
+
         // note that video device URL's are the alphanumeric characters only. So /dev/video0 -> devvideo0
         this.populateAddresses(device.replace(/\W/g, ''))
 
