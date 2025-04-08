@@ -32,6 +32,7 @@ class VideoPage extends basePage {
       timestamp: false,
       enableCameraHeartbeat: false,
       mavStreamSelected: this.props.mavStreamSelected,
+      cameraMode: this.props.cameraMode,
       multicastString: " ",
       compression: { value: 'H264', label: 'H.264' }
     }
@@ -39,6 +40,11 @@ class VideoPage extends basePage {
 
   componentDidMount() {
     fetch(`/api/videodevices`, {headers: {Authorization: `Bearer ${this.state.token}`}}).then(response => response.json()).then(state => { this.setState(state); this.isMulticastUpdateIP(state.useUDPIP); this.loadDone() });
+  }
+
+  handleUsePhotoModeChange = (event) => {
+    //const newCameraMode = event.target.value;
+    this.setState({ cameraMode: event.target.value });
   }
 
   handleVideoChange = (value) => {
@@ -130,6 +136,26 @@ class VideoPage extends basePage {
     this.setState({ mavStreamSelected: value });
   }
 
+  handleCaptureStill = () => {
+    fetch('/api/capturestillphoto', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      }
+    });
+  }
+
+  handleToggleVideo = () => {
+    fetch('/api/togglevideo', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      }
+    });
+  }
+
   handleStreaming = () => {
     //user clicked start/stop streaming
     this.setState({ waiting: true }, () => {
@@ -156,6 +182,7 @@ class VideoPage extends basePage {
           useTimestamp: this.state.timestamp,
           useCameraHeartbeat: this.state.enableCameraHeartbeat,
           mavStreamSelected: this.state.mavStreamSelected.value,
+          cameraMode: this.state.cameraMode,
           compression: this.state.compression.value
         })
       }).then(response => response.json()).then(state => { this.setState(state); this.setState({ waiting: false }) });
@@ -171,7 +198,26 @@ class VideoPage extends basePage {
       <Form style={{ width: 600 }}>
         <p><i>Stream live video from any connected camera devices. Only 1 camera can be streamed at a time. Multicast IP addresses are supported in RTP mode.</i></p>
         <h2>Configuration</h2>
+
         <div className="form-group row" style={{ marginBottom: '5px' }}>
+              <label className="col-sm-4 col-form-label">Camera Mode</label>
+              <div className="col-sm-8">
+                <div className="form-check">
+                  <input className="form-check-input" type="radio" name="cameramode" value="streaming" disabled={this.state.streamingStatus} onChange={this.handleUsePhotoModeChange} checked={this.state.cameraMode === "streaming" } />
+                  <label className="form-check-label">Streaming Video (Default) </label>
+                </div>
+                <div className="form-check">
+                  <input className="form-check-input" type="radio" name="cameramode" value="photo" disabled={this.state.streamingStatus} onChange={this.handleUsePhotoModeChange} checked={this.state.cameraMode === "photo" } />
+                  <label className="form-check-label">Still Photo Capture</label>
+                </div>
+                <div className="form-check">
+                  <input className="form-check-input" type="radio" name="cameramode" value="video" disabled={this.state.streamingStatus} onChange={this.handleUsePhotoModeChange} checked={this.state.cameraMode === "video" } />
+                  <label className="form-check-label">Local Video Recording</label>
+                </div>
+              </div>
+        </div>
+
+        <div className = "videostreaming" style = {{display: (this.state.cameraMode === "streaming") ? "block" : "none"}}>
               <label className="col-sm-4 col-form-label">Streaming Mode</label>
               <div className="col-sm-8">
                 <div className="form-check">
@@ -254,7 +300,25 @@ class VideoPage extends basePage {
             </div>
           </div>
         </div>
-        <br/>
+
+        <div className = "photomode" style = {{display: ((this.state.cameraMode === "photo") ? "block" : "none")}}>
+          <div className="form-group row" style={{ marginBottom: '5px' }}>
+            <div className="col-sm-8" style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>
+              <Button onClick={this.handleCaptureStill} className="btn btn-primary" >Take Photo Now</Button>
+            </div>
+          </div>
+          <br/>
+        </div>
+
+        <div className = "photomode" style = {{display: ((this.state.cameraMode === "video") ? "block" : "none")}}>
+          <div className="form-group row" style={{ marginBottom: '5px' }}>
+            <div className="col-sm-8" style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>
+              <Button onClick={this.handleToggleVideo} className="btn btn-primary" >Start/stop Video Recording</Button>
+            </div>
+          </div>
+          <br/>
+        </div>
+
         <h3>MAVLink Video Streaming Service</h3>
         <p><i>Configuration for advertising the camera and associated video stream via MAVLink. See <a href='https://mavlink.io/en/services/camera.html#video_streaming'>here</a> for details.</i></p>
         <div className="form-group row" style={{ marginBottom: '5px' }}>
@@ -263,7 +327,7 @@ class VideoPage extends basePage {
           <input type="checkbox" disabled={this.state.streamingStatus} checked={this.state.enableCameraHeartbeat} onChange={this.handleUseCameraHeartbeatChange} />
           </div>
         </div>
-        <div style={{ display: (this.state.enableCameraHeartbeat && (!this.state.UDPChecked)) ? "block" : "none" }}>
+        <div style={{ display: (this.state.enableCameraHeartbeat && !this.state.UDPChecked && this.state.cameraMode === "streaming") ? "block" : "none" }}>
           <div className="form-group row" style={{ marginBottom: '5px' } }>
               <label className="col-sm-4 col-form-label">Video source IP Address</label>
               <div className="col-sm-8">
@@ -273,15 +337,25 @@ class VideoPage extends basePage {
         </div>
         <br/>
 
-        <div className="form-group row" style={{ marginBottom: '5px' }}>
-          <div className="col-sm-8">
-            <Button onClick={this.handleStreaming} className="btn btn-primary">{this.state.streamingStatus ? "Stop Streaming" : "Start Streaming"}</Button>
+        <div className = "videostreaming" style = {{display: (this.state.cameraMode === "streaming") ? "block" : "none"}}>
+          <div className="form-group row" style={{ marginBottom: '5px' }}>
+            <div className="col-sm-8">
+              <Button onClick={this.handleStreaming} className="btn btn-primary">{this.state.streamingStatus ? "Stop Streaming" : "Start Streaming"}</Button>
+            </div>
+            <br/>
           </div>
-          <br/>
+        </div>
+        <div className = "mavlink" style = {{display: (this.state.cameraMode != "streaming") ? "block" : "none"}}>
+          <div className="form-group row" style={{ marginBottom: '5px' }}>
+            <div className="col-sm-8">
+              <Button onClick={this.handleStreaming} className="btn btn-primary">{this.state.streamingStatus ? "Stop MAVLink Camera Interface" : "Start MAVLink Camera Interface"}</Button>
+            </div>
+            <br/>
+          </div>
         </div>
 
         <br />
-        <h3 style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>Connection strings for video stream</h3>
+        <h3 style={{ display: (this.state.streamingStatus && (this.state.cameraMode === "streaming")) ? "block" : "none" }}>Connection strings for video stream</h3>
         <Accordion defaultActiveKey="0" style={{ display: (this.state.streamingStatus && !this.state.UDPChecked) ? "block" : "none" }}>
           <Accordion.Item eventKey="0">
             <Accordion.Header>

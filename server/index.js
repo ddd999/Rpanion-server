@@ -92,6 +92,31 @@ ntripClient.eventEmitter.on('rtcmpacket', (msg, seq) => {
   }
 })
 
+// Capture a single still photo when in photo mode
+// This code responds to the button on the web interface
+app.post('/api/capturestillphoto', function (req, res) {
+  vManager.captureStillPhoto()
+  res.end();
+})
+
+// Toggle local video recording on/off
+// This code responds to the button on the web interface
+app.post('/api/togglevideo', function (req, res) {
+  vManager.toggleVideo()
+  res.end();
+})
+
+// This function responds to a MAVLink command to capture a photo.
+vManager.eventEmitter.on('digicamcontrol', (senderSysId, senderCompId, targetComponent) => {
+  try {
+    if (fcManager.m) {
+      fcManager.m.sendCommandAck(203, 0, senderSysId, senderCompId, targetComponent)
+    }
+  } catch (err) {
+    console.log(err)
+  }
+})
+
 // Got a camera heartbeat event, send to flight controller
 vManager.eventEmitter.on('cameraheartbeat', (mavType, autopilot, component) => {
   try {
@@ -120,6 +145,29 @@ vManager.eventEmitter.on('videostreaminfo', (msg, senderSysId, senderCompId, tar
   try {
     if (fcManager.m) {
       fcManager.m.sendCommandAck(common.VideoStreamInformation.MSG_ID, 0, senderSysId, senderCompId, targetComponent)
+      fcManager.m.sendData(msg, senderCompId)
+    }
+  } catch (err) {
+    console.log(err)
+  }
+})
+
+// Got a CAMERA_SETTINGS event, send to flight controller
+vManager.eventEmitter.on('camerasettings', (msg, senderSysId, senderCompId, targetComponent) => {
+  try {
+    if (fcManager.m) {
+      fcManager.m.sendCommandAck(common.CameraSettings.MSG_ID, 0, senderSysId, senderCompId, targetComponent)
+      fcManager.m.sendData(msg, senderCompId)
+    }
+  } catch (err) {
+    console.log(err)
+  }
+})
+
+// Got a CAMERA_TRIGGER event, send to flight controller
+vManager.eventEmitter.on('cameratrigger', (msg, senderCompId) => {
+  try {
+    if (fcManager.m) {
       fcManager.m.sendData(msg, senderCompId)
     }
   } catch (err) {
@@ -587,7 +635,7 @@ app.get('/api/softwareinfo', authenticateToken, (req, res) => {
 
 app.get('/api/videodevices', authenticateToken, (req, res) => {
   vManager.populateAddresses()
-  vManager.getVideoDevices((err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI) => {
+  vManager.getVideoDevices((err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI, selCameraMode) => {
     if (!err) {
       res.setHeader('Content-Type', 'application/json')
       res.send(JSON.stringify({
@@ -609,7 +657,8 @@ app.get('/api/videodevices', authenticateToken, (req, res) => {
         fps: fps,
         FPSMax: FPSMax,
         enableCameraHeartbeat: useCameraHeartbeat,
-        mavStreamSelected: selMavURI
+        mavStreamSelected: selMavURI,
+        cameraMode: selCameraMode
       }))
     } else {
       res.setHeader('Content-Type', 'application/json')
@@ -867,6 +916,7 @@ app.post('/api/startstopvideo', authenticateToken, [check('active').isBoolean(),
   check('useUDP').if(check('active').isIn([true])).isBoolean(),
   check('useTimestamp').if(check('active').isIn([true])).isBoolean(),
   check('useCameraHeartbeat').if(check('active').isIn([true])).isBoolean(),
+  check('cameraMode').if(check('active').isIn([true])).isIn(['streaming', 'photo', 'video']),
   check('useUDPPort').if(check('active').isIn([true])).isPort(),
   check('useUDPIP').if(check('active').isIn([true])).isIP(),
   check('bitrate').if(check('active').isIn([true])).isInt({ min: 50, max: 50000 }),
@@ -883,7 +933,8 @@ app.post('/api/startstopvideo', authenticateToken, [check('active').isBoolean(),
   // user wants to start/stop video streaming
   vManager.startStopStreaming(req.body.active, req.body.device, req.body.height, req.body.width, req.body.format, req.body.rotation,
                               req.body.bitrate, req.body.fps, req.body.useUDP, req.body.useUDPIP, req.body.useUDPPort,
-                              req.body.useTimestamp, req.body.useCameraHeartbeat, req.body.mavStreamSelected, req.body.compression, (err, status, addresses) => {
+                              req.body.useTimestamp, req.body.useCameraHeartbeat, req.body.mavStreamSelected, req.body.cameraMode,
+                              req.body.compression, (err, status, addresses) => {
     if (!err) {
       res.setHeader('Content-Type', 'application/json')
       const ret = { streamingStatus: status, streamAddresses: addresses }
