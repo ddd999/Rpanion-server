@@ -32,15 +32,23 @@ class VideoPage extends basePage {
       timestamp: false,
       enableCameraHeartbeat: false,
       mavStreamSelected: this.props.mavStreamSelected,
-      cameraMode: this.props.cameraMode,
       multicastString: " ",
+      cameraMode: this.props.cameraMode || 'streaming',
       compression: { value: 'H264', label: 'H.264' }
     }
   }
 
-  componentDidMount() {
-    fetch(`/api/videodevices`, {headers: {Authorization: `Bearer ${this.state.token}`}}).then(response => response.json()).then(state => { this.setState(state); this.isMulticastUpdateIP(state.useUDPIP); this.loadDone() });
-  }
+componentDidMount() {
+  fetch(`/api/videodevices`, {headers: {Authorization: `Bearer ${this.state.token}`}})
+  .then(response => response.json())
+  .then(state => {
+    this.setState(state);
+    if (state.useUDPIP) {  // Check that the IP address exists
+      this.isMulticastUpdateIP(state.useUDPIP);
+    }
+    this.loadDone()
+  });
+}
 
   handleUsePhotoModeChange = (event) => {
     //const newCameraMode = event.target.value;

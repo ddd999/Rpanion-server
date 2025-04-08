@@ -13,6 +13,7 @@ class videoStream {
     this.settings = settings
     this.savedDevice = null
 
+    this.stillDevices = null
     this.photoSeq = 0
 
     this.winston = winston
@@ -83,6 +84,10 @@ class videoStream {
 
   // video streaming
   getVideoDevices (callback) {
+
+    console.log("Entered getVideoDevices()")
+    this.winston.info("Entered getVideoDevices()")
+
     // get all video device details
     // callback is: err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, cameraHeartbeat, selMavURI, cameraMode
     exec('python3 ./python/gstcaps.py', (error, stdout, stderr) => {
