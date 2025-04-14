@@ -52,6 +52,7 @@ componentDidMount() {
 
   handleUsePhotoModeChange = (event) => {
     //const newCameraMode = event.target.value;
+    console.log("handleUsePhotoModeChange, cameraMode value: ", event.target.value)
     this.setState({ cameraMode: event.target.value });
   }
 
@@ -225,19 +226,21 @@ componentDidMount() {
               </div>
         </div>
 
-        <div className = "videostreaming" style = {{display: (this.state.cameraMode === "streaming") ? "block" : "none"}}>
-              <label className="col-sm-4 col-form-label">Streaming Mode</label>
-              <div className="col-sm-8">
-                <div className="form-check">
-                  <input className="form-check-input" type="radio" name="streamtype" value="rtp" disabled={this.state.streamingStatus} onChange={this.handleUseUDPChange} checked={this.state.UDPChecked} />
-                  <label className="form-check-label">RTP (stream to single client)</label>
+        <div style={{ display: (this.state.cameraMode === "streaming") ? "block" : "none"}}>
+          <div className="form-group row" style={{ marginBottom: '5px'}}>
+                <label className="col-sm-4 col-form-label">Streaming Mode</label>
+                <div className="col-sm-8">
+                  <div className="form-check">
+                    <input className="form-check-input" type="radio" name="streamtype" value="rtp" disabled={this.state.streamingStatus} onChange={this.handleUseUDPChange} checked={this.state.UDPChecked} />
+                    <label className="form-check-label">RTP (stream to single client)</label>
+                  </div>
+                  <div className="form-check">
+                    <input className="form-check-input" type="radio" name="streamtype" value="rtsp" disabled={this.state.streamingStatus} onChange={this.handleUseUDPChange} checked={!this.state.UDPChecked} />
+                    <label className="form-check-label">RTSP (multiple clients can connect to stream)</label>
+                  </div>
                 </div>
-                <div className="form-check">
-                  <input className="form-check-input" type="radio" name="streamtype" value="rtsp" disabled={this.state.streamingStatus} onChange={this.handleUseUDPChange} checked={!this.state.UDPChecked} />
-                  <label className="form-check-label">RTSP (multiple clients can connect to stream)</label>
-                </div>
-              </div>
             </div>
+          </div>
 
         <div className="form-group row" style={{ marginBottom: '5px' }}>
           <label className="col-sm-4 col-form-label">Device</label>
@@ -258,42 +261,51 @@ componentDidMount() {
               <Select isDisabled={this.state.streamingStatus} options={this.state.rotations} onChange={this.handleRotChange} value={this.state.rotSelected} />
             </div>
           </div>
-          <div className="form-group row" style={{ marginBottom: '5px' }}>
-            <label className="col-sm-4 col-form-label">Maximum Bitrate</label>
-            <div className="col-sm-8">
-              <input disabled={this.state.streamingStatus} type="number" name="bitrate" min="50" max="50000" step="10" onChange={this.handleBitrateChange} value={this.state.bitrate} />kbps
+
+          <div style={{ display: (!this.state.UDPChecked && this.state.cameraMode != "photo") ? "block" : "none"}}>
+            <div className="form-group row" style={{ marginBottom: '5px'}}>
+              <label className="col-sm-4 col-form-label">Maximum Bitrate</label>
+              <div className="col-sm-8">
+                <input disabled={this.state.streamingStatus} type="number" name="bitrate" min="50" max="50000" step="10" onChange={this.handleBitrateChange} value={this.state.bitrate} />kbps
+              </div>
             </div>
           </div>
+
           <div className="form-group row" style={{ marginBottom: '5px' }}>
-          <label className="col-sm-4 col-form-label">Timestamp Overlay</label>
-          <div className="col-sm-8">
-            <input type="checkbox" disabled={this.state.streamingStatus} onChange={this.handleTimestampChange} checked={this.state.timestamp} />
-          </div>
-          </div>
-          <div className="form-group row" style={{ marginBottom: '5px' }}>
-            <label className="col-sm-4 col-form-label">Compression</label>
+            <label className="col-sm-4 col-form-label">Timestamp Overlay</label>
             <div className="col-sm-8">
-              <Select
-                isDisabled={this.state.streamingStatus}
-                options={[
-                  { value: 'H264', label: 'H.264' },
-                  { value: 'H265', label: 'H.265' }
-                ]}
-                onChange={(value) => this.setState({ compression: value })}
-                value={this.state.compression}
-              />
+              <input type="checkbox" disabled={this.state.streamingStatus} onChange={this.handleTimestampChange} checked={this.state.timestamp} />
+            </div>
+          </div>
+
+          <div style={{ display: (this.state.cameraMode === "streaming") ? "block" : "none"}}>
+            <div className="form-group row" style={{ marginBottom: '5px'}}>
+              <label className="col-sm-4 col-form-label">Compression</label>
+              <div className="col-sm-8">
+                <Select
+                  isDisabled={this.state.streamingStatus}
+                  options={[
+                    { value: 'H264', label: 'H.264' },
+                    { value: 'H265', label: 'H.265' }
+                  ]}
+                  onChange={(value) => this.setState({ compression: value })}
+                  value={this.state.compression}
+                />
+              </div>
+            </div>
+
+            <div className="form-group row" style={{ marginBottom: '5px'}}>
+              <label className="col-sm-4 col-form-label">Framerate</label>
+              <div className="col-sm-8" style={{ display: (this.state.FPSMax === 0) ? "block" : "none" }}>
+                <Select isDisabled={this.state.streamingStatus} options={this.state.fps} value={this.state.fpsSelected} onChange={this.handleFPSChangeSelect} />
+              </div>
+              <div className="col-sm-8" style={{ display: (this.state.FPSMax !== 0) ? "block" : "none" }}>
+                <input disabled={this.state.streamingStatus} type="number" name="fps" min="1" max={this.state.FPSMax} step="1" onChange={this.handleFPSChange} value={this.state.fpsSelected} />fps (max: {this.state.FPSMax})
+              </div>
             </div>
           </div>
         </div>
-        <div className="form-group row" style={{ marginBottom: '5px' }}>
-          <label className="col-sm-4 col-form-label">Framerate</label>
-          <div className="col-sm-8" style={{ display: (this.state.FPSMax === 0) ? "block" : "none" }}>
-            <Select isDisabled={this.state.streamingStatus} options={this.state.fps} value={this.state.fpsSelected} onChange={this.handleFPSChangeSelect} />
-          </div>
-          <div className="col-sm-8" style={{ display: (this.state.FPSMax !== 0) ? "block" : "none" }}>
-            <input disabled={this.state.streamingStatus} type="number" name="fps" min="1" max={this.state.FPSMax} step="1" onChange={this.handleFPSChange} value={this.state.fpsSelected} />fps (max: {this.state.FPSMax})
-          </div>
-        </div>
+
         <div style={{ display: (this.state.UDPChecked) ? "block" : "none" }}>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
             <label className="col-sm-4 col-form-label ">Destination IP</label>
@@ -309,7 +321,7 @@ componentDidMount() {
           </div>
         </div>
 
-        <div className = "photomode" style = {{display: ((this.state.cameraMode === "photo") ? "block" : "none")}}>
+        <div style = {{display: ((this.state.cameraMode === "photo") ? "block" : "none")}}>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
             <div className="col-sm-8" style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>
               <Button onClick={this.handleCaptureStill} className="btn btn-primary" >Take Photo Now</Button>
@@ -318,7 +330,7 @@ componentDidMount() {
           <br/>
         </div>
 
-        <div className = "photomode" style = {{display: ((this.state.cameraMode === "video") ? "block" : "none")}}>
+        <div style = {{display: ((this.state.cameraMode === "video") ? "block" : "none")}}>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
             <div className="col-sm-8" style={{ display: (this.state.streamingStatus) ? "block" : "none" }}>
               <Button onClick={this.handleToggleVideo} className="btn btn-primary" >Start/stop Video Recording</Button>
@@ -329,12 +341,14 @@ componentDidMount() {
 
         <h3>MAVLink Video Streaming Service</h3>
         <p><i>Configuration for advertising the camera and associated video stream via MAVLink. See <a href='https://mavlink.io/en/services/camera.html#video_streaming'>here</a> for details.</i></p>
-        <div className="form-group row" style={{ marginBottom: '5px' }}>
-          <label className="col-sm-4 col-form-label">Enable camera heartbeats</label>
-          <div className="col-sm-7">
-          <input type="checkbox" disabled={this.state.streamingStatus} checked={this.state.enableCameraHeartbeat} onChange={this.handleUseCameraHeartbeatChange} />
-          </div>
+
+          <div className="form-group row" style={{ marginBottom: '5px' }}>
+            <label className="col-sm-4 col-form-label">Enable camera heartbeats</label>
+            <div className="col-sm-8">
+              <input type="checkbox" disabled={this.state.streamingStatus} checked={this.state.enableCameraHeartbeat} onChange={this.handleUseCameraHeartbeatChange} />
+            </div>
         </div>
+
         <div style={{ display: (this.state.enableCameraHeartbeat && !this.state.UDPChecked && this.state.cameraMode === "streaming") ? "block" : "none" }}>
           <div className="form-group row" style={{ marginBottom: '5px' } }>
               <label className="col-sm-4 col-form-label">Video source IP Address</label>
@@ -347,6 +361,7 @@ componentDidMount() {
 
         <div className = "videostreaming" style = {{display: (this.state.cameraMode === "streaming") ? "block" : "none"}}>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
+            <div className="col-sm-4"></div>
             <div className="col-sm-8">
               <Button onClick={this.handleStreaming} className="btn btn-primary">{this.state.streamingStatus ? "Stop Streaming" : "Start Streaming"}</Button>
             </div>
@@ -362,67 +377,69 @@ componentDidMount() {
           </div>
         </div>
 
-        <br />
-        <h3 style={{ display: (this.state.streamingStatus && (this.state.cameraMode === "streaming")) ? "block" : "none" }}>Connection strings for video stream</h3>
-        <Accordion defaultActiveKey="0" style={{ display: (this.state.streamingStatus && !this.state.UDPChecked) ? "block" : "none" }}>
-          <Accordion.Item eventKey="0">
-            <Accordion.Header>
-              + RTSP Streaming Addresses (for VLC, etc)
-            </Accordion.Header>
-            <Accordion.Body>
-              {this.state.streamAddresses.map((item, index) => (
-                <p key={index} style={{ fontFamily: "monospace" }}>{item}</p>
-              ))}
-            </Accordion.Body>
-          </Accordion.Item>
-          <Accordion.Item eventKey="1">
-            <Accordion.Header>
-              + GStreamer Connection Strings
-            </Accordion.Header>
-            <Accordion.Body>
-              {this.state.streamAddresses.map((item, index) => (
-                <p key={index} style={{ fontFamily: "monospace" }}>gst-launch-1.0 rtspsrc location={item} latency=0 is-live=True ! queue ! decodebin ! autovideosink</p>
-              ))}
-            </Accordion.Body>
-          </Accordion.Item>
-          <Accordion.Item eventKey="2">
-            <Accordion.Header>
-              + Mission Planner Connection Strings
-            </Accordion.Header>
-            <Accordion.Body>
-              {this.state.streamAddresses.map((item, index) => (
-                <p key={index} style={{ fontFamily: "monospace" }}>rtspsrc location={item} latency=0 is-live=True ! queue ! application/x-rtp ! {this.state.compression.value == "H264" ? "rtph264depay" : "rtph265depay"} ! {this.state.compression.value == "H264" ? "avdec_h264" : "avdec_h265"} ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink</p>
-              ))}
-            </Accordion.Body>
-          </Accordion.Item>
-        </Accordion>
-        <Accordion defaultActiveKey="0" style={{ display: (this.state.streamingStatus && this.state.UDPChecked) ? "block" : "none" }}>
-          <Accordion.Item eventKey="0">
-            <Accordion.Header>
-              + QGroundControl
-            </Accordion.Header>
-            <Accordion.Body>
-              <p style={{ fontFamily: "monospace" }}>Video Source: UDP {this.state.compression.value == "H264" ? "h.264" : "h.265"} Video Stream</p>
-              <p style={{ fontFamily: "monospace" }}>Port: {this.state.useUDPPort}</p>
-            </Accordion.Body>
-          </Accordion.Item>
-          <Accordion.Item eventKey="1">
-            <Accordion.Header>
-              + GStreamer
-            </Accordion.Header>
-            <Accordion.Body>
-              <p style={{ fontFamily: "monospace" }}>gst-launch-1.0 udpsrc {this.state.multicastString}port={this.state.useUDPPort} caps=&apos;application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string){this.state.compression.value == "H264" ? "H264" : "H265"}&apos; ! rtpjitterbuffer ! {this.state.compression.value == "H264" ? "rtph264depay" : "rtph265depay"} ! {this.state.compression.value == "H264" ? "h264parse" : "h265parse"} ! {this.state.compression.value == "H264" ? "avdec_h264" : "avdec_h265"} ! videoconvert ! autovideosink sync=false</p>
-            </Accordion.Body>
-          </Accordion.Item>
-          <Accordion.Item eventKey="2">
-            <Accordion.Header>
-              + Mission Planner Connection Strings
-            </Accordion.Header>
-            <Accordion.Body>
-              <p style={{ fontFamily: "monospace" }}>udpsrc {this.state.multicastString}port={this.state.useUDPPort} buffer-size=90000 ! application/x-rtp ! rtpjitterbuffer ! {this.state.compression.value == "H264" ? "rtph264depay" : "rtph265depay"} ! {this.state.compression.value == "H264" ? "h264parse" : "h265parse"} ! {this.state.compression.value == "H264" ? "avdec_h264" : "avdec_h265"} ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false</p>
-            </Accordion.Body>
-          </Accordion.Item>
-        </Accordion>
+        <div style={{ display: (this.state.cameraMode === "streaming") ? "block" : "none"}}>
+          <br />
+          <h3 style={{ display: (this.state.streamingStatus && (this.state.cameraMode === "streaming")) ? "block" : "none" }}>Connection strings for video stream</h3>
+          <Accordion defaultActiveKey="0" style={{ display: (this.state.streamingStatus && !this.state.UDPChecked) ? "block" : "none" }}>
+            <Accordion.Item eventKey="0">
+              <Accordion.Header>
+                + RTSP Streaming Addresses (for VLC, etc)
+              </Accordion.Header>
+              <Accordion.Body>
+                {this.state.streamAddresses.map((item, index) => (
+                  <p key={index} style={{ fontFamily: "monospace" }}>{item}</p>
+                ))}
+              </Accordion.Body>
+            </Accordion.Item>
+            <Accordion.Item eventKey="1">
+              <Accordion.Header>
+                + GStreamer Connection Strings
+              </Accordion.Header>
+              <Accordion.Body>
+                {this.state.streamAddresses.map((item, index) => (
+                  <p key={index} style={{ fontFamily: "monospace" }}>gst-launch-1.0 rtspsrc location={item} latency=0 is-live=True ! queue ! decodebin ! autovideosink</p>
+                ))}
+              </Accordion.Body>
+            </Accordion.Item>
+            <Accordion.Item eventKey="2">
+              <Accordion.Header>
+                + Mission Planner Connection Strings
+              </Accordion.Header>
+              <Accordion.Body>
+                {this.state.streamAddresses.map((item, index) => (
+                  <p key={index} style={{ fontFamily: "monospace" }}>rtspsrc location={item} latency=0 is-live=True ! queue ! application/x-rtp ! {this.state.compression.value == "H264" ? "rtph264depay" : "rtph265depay"} ! {this.state.compression.value == "H264" ? "avdec_h264" : "avdec_h265"} ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink</p>
+                ))}
+              </Accordion.Body>
+            </Accordion.Item>
+          </Accordion>
+          <Accordion defaultActiveKey="0" style={{ display: (this.state.streamingStatus && this.state.UDPChecked) ? "block" : "none" }}>
+            <Accordion.Item eventKey="0">
+              <Accordion.Header>
+                + QGroundControl
+              </Accordion.Header>
+              <Accordion.Body>
+                <p style={{ fontFamily: "monospace" }}>Video Source: UDP {this.state.compression.value == "H264" ? "h.264" : "h.265"} Video Stream</p>
+                <p style={{ fontFamily: "monospace" }}>Port: {this.state.useUDPPort}</p>
+              </Accordion.Body>
+            </Accordion.Item>
+            <Accordion.Item eventKey="1">
+              <Accordion.Header>
+                + GStreamer
+              </Accordion.Header>
+              <Accordion.Body>
+                <p style={{ fontFamily: "monospace" }}>gst-launch-1.0 udpsrc {this.state.multicastString}port={this.state.useUDPPort} caps=&apos;application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string){this.state.compression.value == "H264" ? "H264" : "H265"}&apos; ! rtpjitterbuffer ! {this.state.compression.value == "H264" ? "rtph264depay" : "rtph265depay"} ! {this.state.compression.value == "H264" ? "h264parse" : "h265parse"} ! {this.state.compression.value == "H264" ? "avdec_h264" : "avdec_h265"} ! videoconvert ! autovideosink sync=false</p>
+              </Accordion.Body>
+            </Accordion.Item>
+            <Accordion.Item eventKey="2">
+              <Accordion.Header>
+                + Mission Planner Connection Strings
+              </Accordion.Header>
+              <Accordion.Body>
+                <p style={{ fontFamily: "monospace" }}>udpsrc {this.state.multicastString}port={this.state.useUDPPort} buffer-size=90000 ! application/x-rtp ! rtpjitterbuffer ! {this.state.compression.value == "H264" ? "rtph264depay" : "rtph265depay"} ! {this.state.compression.value == "H264" ? "h264parse" : "h265parse"} ! {this.state.compression.value == "H264" ? "avdec_h264" : "avdec_h265"} ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false</p>
+              </Accordion.Body>
+            </Accordion.Item>
+          </Accordion>
+        </div>
       </Form>
     );
   }
