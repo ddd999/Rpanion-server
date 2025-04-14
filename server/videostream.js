@@ -34,7 +34,7 @@ class videoStream {
       this.active = false
       this.getVideoDevices((videoError) => {
         if (!videoError) {
-          this.getStillDevices((stillError) => {
+          this.getStillDevices((stillError) => {f
             if (!stillError) {
               this.startStopStreaming(
                 true,
@@ -281,6 +281,7 @@ getStillDevices(callback) {
         compression
       }
 
+        console.log("startStopStreaming: photo mode is: ", this.savedDevice.cameraMode)
       // If photo mode was selected, start the libcamera server
       if (this.savedDevice.cameraMode === "photo") {
         console.log('Entering photo mode')
@@ -434,13 +435,13 @@ getStillDevices(callback) {
         this.resetVideo()
       })
 
-      if (this.savedDevice.useCameraHeartbeat) {
-        this.startInterval()
-      }
-
       console.log('Started Video Streaming of ' + device)
       this.winston.info('Started Video Streaming of ' + device)
     }
+      if (this.savedDevice.useCameraHeartbeat === true) {
+        this.startInterval()
+      }
+
       return callback(null, this.active, this.deviceAddresses)
     } else {
       // stop streaming
