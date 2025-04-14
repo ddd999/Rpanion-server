@@ -75,6 +75,13 @@ process.on('SIGINT', quitting) // run signal handler when main process exits
 function quitting () {
   cloud.quitting()
   logConversion.quitting()
+
+  // Ensure camera is stopped cleanly
+  vManager.stopCamera(() => {
+    console.log('Camera stopped during shutdown.');
+    winston.info('Camera stopped during shutdown.');
+  })
+
   console.log('---Shutdown Rpanion---')
   winston.info('---Shutdown Rpanion---')
   process.exit(0)
@@ -94,25 +101,43 @@ ntripClient.eventEmitter.on('rtcmpacket', (msg, seq) => {
 
 // Capture a single still photo when in photo mode
 // This code responds to the button on the web interface
-app.post('/api/capturestillphoto', function (req, res) {
-  vManager.captureStillPhoto()
-  res.end();
+app.post('/api/capturestillphoto', authenticateToken, function (req, res) {
+  if (vManager.active && vManager.cameraMode === 'photo') {
+     // Call without MAVLink sender/target info as it's a UI trigger
+    vManager.captureStillPhoto();
+    res.status(200).send({ message: 'Capture signal sent.'});
+  } else {
+    res.status(400).send({ error: 'Camera not active or not in photo mode.'});
+  }
 })
 
 // Toggle local video recording on/off
 // This code responds to the button on the web interface
-app.post('/api/togglevideo', function (req, res) {
-  vManager.toggleVideo()
-  res.end();
+app.post('/api/togglevideorecording', authenticateToken, function (req, res) {
+  // Check if active and in the correct mode
+  if (vManager.active && vManager.cameraMode === 'video') {
+    try {
+      vManager.toggleVideoRecording(); // Use the new method name
+      winston.info('Toggled video recording via API.');
+      res.status(200).send({ success: true, message: 'Toggle signal sent.' });
+    } catch (err) {
+        winston.error('Error toggling video recording:', err);
+        res.status(500).send({ error: 'Failed to send toggle signal.' });
+    }
+  } else {
+      res.status(400).send({ error: 'Camera is not active in video recording mode.' });
+  }
 })
 
 // This function responds to a MAVLink command to capture a photo.
 vManager.eventEmitter.on('digicamcontrol', (senderSysId, senderCompId, targetComponent) => {
   try {
     if (fcManager.m) {
+      // Acknowledge the MAV_CMD_DO_DIGICAM_CONTROL command
       fcManager.m.sendCommandAck(203, 0, senderSysId, senderCompId, targetComponent)
     }
   } catch (err) {
+    winston.error('Error acknowledging DoDigicamControl:', err);
     console.log(err)
   }
 })
@@ -124,6 +149,7 @@ vManager.eventEmitter.on('cameraheartbeat', (mavType, autopilot, component) => {
       fcManager.m.sendHeartbeat(mavType, autopilot, component)
     }
   } catch (err) {
+    winston.error('Error sending camera heartbeat:', err);
     console.log(err)
   }
 })
@@ -132,10 +158,12 @@ vManager.eventEmitter.on('cameraheartbeat', (mavType, autopilot, component) => {
 vManager.eventEmitter.on('camerainfo', (msg, senderSysId, senderCompId, targetComponent) => {
   try {
     if (fcManager.m) {
+      // Acknowledge the CAMERA_INFORMATION request
       fcManager.m.sendCommandAck(common.CameraInformation.MSG_ID, 0, senderSysId, senderCompId, targetComponent)
       fcManager.m.sendData(msg, senderCompId)
     }
   } catch (err) {
+    winston.error('Error sending CameraInformation:', err);
     console.log(err)
   }
 })
@@ -144,10 +172,12 @@ vManager.eventEmitter.on('camerainfo', (msg, senderSysId, senderCompId, targetCo
 vManager.eventEmitter.on('videostreaminfo', (msg, senderSysId, senderCompId, targetComponent) => {
   try {
     if (fcManager.m) {
+      // Acknowledge the VIDEO_STREAM_INFORMATION request
       fcManager.m.sendCommandAck(common.VideoStreamInformation.MSG_ID, 0, senderSysId, senderCompId, targetComponent)
       fcManager.m.sendData(msg, senderCompId)
     }
   } catch (err) {
+    winston.error('Error sending VideoStreamInformation:', err);
     console.log(err)
   }
 })
@@ -156,10 +186,12 @@ vManager.eventEmitter.on('videostreaminfo', (msg, senderSysId, senderCompId, tar
 vManager.eventEmitter.on('camerasettings', (msg, senderSysId, senderCompId, targetComponent) => {
   try {
     if (fcManager.m) {
+      // Acknowledge the CAMERA_SETTINGS request
       fcManager.m.sendCommandAck(common.CameraSettings.MSG_ID, 0, senderSysId, senderCompId, targetComponent)
       fcManager.m.sendData(msg, senderCompId)
     }
   } catch (err) {
+    winston.error('Error sending CameraSettings:', err);
     console.log(err)
   }
 })
@@ -168,9 +200,11 @@ vManager.eventEmitter.on('camerasettings', (msg, senderSysId, senderCompId, targ
 vManager.eventEmitter.on('cameratrigger', (msg, senderCompId) => {
   try {
     if (fcManager.m) {
+       // Send the CAMERA_TRIGGER message to the flight controller
       fcManager.m.sendData(msg, senderCompId)
     }
   } catch (err) {
+    winston.error('Error sending CameraTrigger:', err);
     console.log(err)
   }
 })
@@ -182,6 +216,7 @@ fcManager.eventEmitter.on('gotMessage', (packet, data) => {
     ntripClient.onMavPacket(packet, data)
     vManager.onMavPacket(packet, data)
   } catch (err) {
+    winston.error('Error processing MAVLink message in listener:', err);
     console.log(err)
   }
 })
@@ -634,39 +669,208 @@ app.get('/api/softwareinfo', authenticateToken, (req, res) => {
 })
 
 app.get('/api/videodevices', authenticateToken, (req, res) => {
-  vManager.populateAddresses()
-  vManager.getVideoDevices((err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI, selCameraMode) => {
-    if (!err) {
-      res.setHeader('Content-Type', 'application/json')
-      res.send(JSON.stringify({
-        ifaces: vManager.ifaces,
-        dev: devices,
-        vidDeviceSelected: seldevice,
-        vidres: vidres,
-        vidResSelected: selRes,
-        streamingStatus: active,
-        streamAddresses: vManager.deviceAddresses,
-        rotSelected: selRot,
-        bitrate: selbitrate,
-        fpsSelected: selfps,
-        UDPChecked: SeluseUDP,
-        useUDPIP: SeluseUDPIP,
-        useUDPPort: SeluseUDPPort,
-        timestamp,
-        error: null,
-        fps: fps,
-        FPSMax: FPSMax,
-        enableCameraHeartbeat: useCameraHeartbeat,
-        mavStreamSelected: selMavURI,
-        cameraMode: selCameraMode
-      }))
-    } else {
-      res.setHeader('Content-Type', 'application/json')
-      res.send(JSON.stringify({ error: err }))
-      winston.info('Error in /api/videodevices ', { message: err })
+  // vManager.populateAddresses() // Removed: Handled internally by getVideoDevices when active
+  // Updated callback signature
+  vManager.getVideoDevices((err, devices, active, selDevice, selCap, selRot, selBitrate, selFps, selUseUDP, selUseUDPIP, selUseUDPPort, selTimestamp, fpsOptions, fpsMax, allCaps, selCameraHeartbeat, selMavURI) => {
+  //vManager.getVideoDevices((err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI, selCameraMode) => {
+    if (err) {
+      winston.error('Error getting video devices:', err);
+      return res.status(500).json({
+        error: `Failed to get video devices: ${err}`,
+        active: vManager.active, // Send current active state
+        cameraMode: vManager.cameraMode, // Send current mode
+        devices: vManager.videoDevices || [] // Send cached devices if available
+      });
+   }
+
+    // Updated response structure based on new callback parameters
+    res.send(JSON.stringify({
+      devices: devices || [],
+      active: active,
+      cameraMode: vManager.cameraMode,
+      selectedDevice: selDevice,
+      selectedCap: selCap,
+      selectedRotation: selRot,
+      selectedBitrate: selBitrate,
+      selectedFps: selFps,
+      selectedUseUDP: selUseUDP,
+      selectedUseUDPIP: selUseUDPIP,
+      selectedUseUDPPort: selUseUDPPort,
+      selectedUseTimestamp: selTimestamp,
+      selectedUseCameraHeartbeat: selCameraHeartbeat,
+      selectedMavStreamURI: selMavURI,
+      fpsOptions: fpsOptions || [],
+      fpsMax: fpsMax,
+      resolutionCaps: allCaps || [],
+      streamAddresses: active ? vManager.deviceAddresses : [],
+      error: null
+    }));
+  });
+});
+
+// GET Still Camera Device information
+app.get('/api/camera/still_devices', authenticateToken, (req, res) => {
+  vManager.getStillDevices((err, devices, active, selDevice, selCap) => {
+    res.setHeader('Content-Type', 'application/json');
+    if (err) {
+      winston.error('Error getting still devices:', err);
+      return res.status(500).json({
+        error: `Failed to get still camera devices: ${err}`,
+        active: vManager.active,
+        cameraMode: vManager.cameraMode,
+        devices: vManager.stillDevices || []
+      });
     }
-  })
-})
+    res.send(JSON.stringify({
+      devices: devices || [],
+      active: active,
+      cameraMode: vManager.cameraMode,
+      selectedDevice: selDevice,
+      selectedCap: selCap,
+      error: null
+    }));
+  });
+});
+
+// POST to START a specific camera mode (streaming, photo, video)
+// Replaces the 'start' part of the old /api/startstopvideo
+app.post('/api/camera/start', authenticateToken, [
+  check('cameraMode').isIn(['streaming', 'photo', 'video']),
+
+  // Video/Streaming specific validation (conditional if possible, else just validate)
+  check('videoDevice').if(check('cameraMode').isIn(['streaming', 'video'])).isString().notEmpty(),
+  check('height').if(check('cameraMode').isIn(['streaming', 'video'])).isInt({ min: 1 }),
+  check('width').if(check('cameraMode').isIn(['streaming', 'video'])).isInt({ min: 1 }),
+  check('format').if(check('cameraMode').isIn(['streaming', 'video'])).isIn(['video/x-raw', 'video/x-h264', 'image/jpeg']), // TODO: add other valid formats?
+  check('bitrate').if(check('cameraMode').isIn(['streaming', 'video'])).isInt({ min: 50, max: 50000 }),
+  check('fps').if(check('cameraMode').isIn(['streaming', 'video'])).isInt({ min: 0, max: 120 }), // Adjusted range because framerate has to be >= 0
+  check('rotation').if(check('cameraMode').isIn(['streaming', 'video'])).isInt().isIn([0, 90, 180, 270]),
+  check('useUDP').if(check('cameraMode').isIn(['streaming', 'video'])).isBoolean(),
+  check('useUDPIP').if(check('useUDP').equals('true')).isIP(),
+  check('useUDPPort').if(check('useUDP').equals('true')).isPort(),
+  check('useTimestamp').if(check('cameraMode').isIn(['streaming', 'video'])).isBoolean(),
+  check('useCameraHeartbeat').if(check('cameraMode').isIn(['streaming', 'video'])).isBoolean(),
+  check('mavStreamSelected').if(check('cameraMode').isIn(['streaming', 'video'])).isIP(),
+  check('compression').if(check('cameraMode').isIn(['streaming', 'video'])).isIn(['H264', 'H265']),
+
+  // Photo-specific validation
+  check('stillDevicePath').if(check('cameraMode').equals('photo')).isString().notEmpty(),
+  check('stillWidth').if(check('cameraMode').equals('photo')).isInt({ min: 1 }),
+  check('stillHeight').if(check('cameraMode').equals('photo')).isInt({ min: 1 }),
+  check('stillFormat').if(check('cameraMode').equals('photo')).isString().notEmpty(), // e.g., 'JPEG'
+
+], (req, res) => {
+const errors = validationResult(req);
+if (!errors.isEmpty()) {
+  winston.info('Bad POST vars in /api/camera/start ', { message: errors.array() });
+  return res.status(422).json({
+      error: 'Validation failed',
+      details: errors.array(),
+      active: vManager.active, // Return current state
+      addresses: vManager.deviceAddresses
+   });
+}
+
+const mode = req.body.cameraMode;
+vManager.cameraMode = mode; // Set the mode
+
+try {
+    // --- Update settings based on mode ---
+    if (mode === 'streaming' || mode === 'video') {
+        vManager.videoSettings = {
+            device: req.body.videoDevice,
+            height: parseInt(req.body.height, 10),
+            width: parseInt(req.body.width, 10),
+            format: req.body.format,
+            bitrate: parseInt(req.body.bitrate, 10),
+            fps: parseInt(req.body.fps, 10),
+            rotation: parseInt(req.body.rotation, 10),
+            useUDP: req.body.useUDP === true || req.body.useUDP === 'true',
+            useUDPIP: req.body.useUDPIP,
+            useUDPPort: parseInt(req.body.useUDPPort, 10),
+            useTimestamp: req.body.useTimestamp === true || req.body.useTimestamp === 'true',
+            useCameraHeartbeat: req.body.useCameraHeartbeat === true || req.body.useCameraHeartbeat === 'true',
+            mavStreamSelected: req.body.mavStreamSelected, // IP Address string for MAVLink msg
+            compression: req.body.compression
+        };
+        vManager.stillSettings = null; // Clear other mode's settings
+
+    } else if (mode === 'photo') {
+        vManager.stillSettings = {
+            path: req.body.stillDevicePath, // Use the assumed field name
+            width: parseInt(req.body.stillWidth, 10),
+            height: parseInt(req.body.stillHeight, 10),
+            format: req.body.stillFormat
+        };
+        vManager.videoSettings = null; // Clear other mode's settings
+    }
+
+    // Now attempt to start the camera in the configured mode
+    vManager.startCamera((err, active, addresses) => {
+      res.setHeader('Content-Type', 'application/json');
+      if (err) {
+        winston.error(`Error starting camera in ${mode} mode:`, err);
+        vManager.resetCamera(); // Ensure clean state on error
+        return res.status(500).json({ error: `Failed to start camera: ${err.message || err}`, active: false, addresses: [] });
+      }
+      winston.info(`Camera started successfully in ${mode} mode.`);
+      res.send(JSON.stringify({ active: active, addresses: addresses || [], error: null }));
+    });
+
+} catch (parseError) {
+     // Catch errors from parseInt or accessing potentially undefined req.body fields
+     winston.error(`Error processing request for /api/camera/start in mode ${mode}:`, parseError);
+     vManager.resetCamera(); // Reset state
+     return res.status(400).json({ error: `Invalid request data: ${parseError.message}`, active: false, addresses: [] });
+}
+});
+
+// POST to STOP the currently active camera mode
+// Replaces the 'stop' part of the old /api/startstopvideo
+app.post('/api/camera/stop', authenticateToken, (req, res) => {
+vManager.stopCamera((err, active) => { // active should be false after stop
+  res.setHeader('Content-Type', 'application/json');
+  if (err) {
+    winston.error('Error stopping camera:', err);
+    return res.status(500).json({ error: 'Failed to stop camera cleanly', active: vManager.active, addresses: vManager.deviceAddresses });
+  }
+  winston.info('Camera stopped successfully via API.');
+  res.send(JSON.stringify({ active: active, addresses: [], error: null })); // active will be false
+});
+});
+
+//     if (!err) {
+//       winston.error('Error getting video devices:', err);
+//       res.setHeader('Content-Type', 'application/json')
+//       res.send(JSON.stringify({
+//         ifaces: vManager.ifaces,
+//         dev: devices,
+//         vidDeviceSelected: seldevice,
+//         vidres: vidres,
+//         vidResSelected: selRes,
+//         streamingStatus: active,
+//         streamAddresses: vManager.deviceAddresses,
+//         rotSelected: selRot,
+//         bitrate: selbitrate,
+//         fpsSelected: selfps,
+//         UDPChecked: SeluseUDP,
+//         useUDPIP: SeluseUDPIP,
+//         useUDPPort: SeluseUDPPort,
+//         timestamp,
+//         error: null,
+//         fps: fps,
+//         FPSMax: FPSMax,
+//         enableCameraHeartbeat: useCameraHeartbeat,
+//         mavStreamSelected: selMavURI,
+//         cameraMode: selCameraMode
+//       }))
+//     } else {
+//       res.setHeader('Content-Type', 'application/json')
+//       res.send(JSON.stringify({ error: err }))
+//       winston.info('Error in /api/videodevices ', { message: err })
+//     }
+//   })
+// })
 
 app.get('/api/hardwareinfo', authenticateToken, (req, res) => {
   aboutPage.getHardwareInfo((RAM, CPU, hatData, sysData, err) => {
@@ -909,44 +1113,44 @@ app.get('/api/networkconnections', authenticateToken, (req, res) => {
   })
 })
 
-app.post('/api/startstopvideo', authenticateToken, [check('active').isBoolean(),
-  check('device').if(check('active').isIn([true])).isLength({ min: 2 }),
-  check('height').if(check('active').isIn([true])).isInt({ min: 1 }),
-  check('width').if(check('active').isIn([true])).isInt({ min: 1 }),
-  check('useUDP').if(check('active').isIn([true])).isBoolean(),
-  check('useTimestamp').if(check('active').isIn([true])).isBoolean(),
-  check('useCameraHeartbeat').if(check('active').isIn([true])).isBoolean(),
-  check('cameraMode').if(check('active').isIn([true])).isIn(['streaming', 'photo', 'video']),
-  check('useUDPPort').if(check('active').isIn([true])).isPort(),
-  check('useUDPIP').if(check('active').isIn([true])).isIP(),
-  check('bitrate').if(check('active').isIn([true])).isInt({ min: 50, max: 50000 }),
-  check('format').if(check('active').isIn([true])).isIn(['video/x-raw', 'video/x-h264', 'image/jpeg']),
-  check('fps').if(check('active').isIn([true])).isInt({ min: -1, max: 100 }),
-  check('rotation').if(check('active').isIn([true])).isInt().isIn([0, 90, 180, 270])],
-  check('compression').if(check('active').isIn([true])).isIn(['H264', 'H265']), (req, res) => {
-  const errors = validationResult(req)
-  if (!errors.isEmpty()) {
-    winston.info('Bad POST vars in /api/startstopvideo ', { message: errors.array() })
-    const ret = { streamingStatus: false, streamAddresses: [], error: ['Error ' + JSON.stringify(errors.array())] }
-    return res.status(422).json(ret)
-  }
-  // user wants to start/stop video streaming
-  vManager.startStopStreaming(req.body.active, req.body.device, req.body.height, req.body.width, req.body.format, req.body.rotation,
-                              req.body.bitrate, req.body.fps, req.body.useUDP, req.body.useUDPIP, req.body.useUDPPort,
-                              req.body.useTimestamp, req.body.useCameraHeartbeat, req.body.mavStreamSelected, req.body.cameraMode,
-                              req.body.compression, (err, status, addresses) => {
-    if (!err) {
-      res.setHeader('Content-Type', 'application/json')
-      const ret = { streamingStatus: status, streamAddresses: addresses }
-      res.send(JSON.stringify(ret))
-    } else {
-      res.setHeader('Content-Type', 'application/json')
-      const ret = { streamingStatus: false, streamAddresses: ['Error ' + err] }
-      res.send(JSON.stringify(ret))
-      winston.info('Error in /api/startstopvideo ', { message: err })
-    }
-  })
-})
+// app.post('/api/startstopvideo', authenticateToken, [check('active').isBoolean(),
+//   check('device').if(check('active').isIn([true])).isLength({ min: 2 }),
+//   check('height').if(check('active').isIn([true])).isInt({ min: 1 }),
+//   check('width').if(check('active').isIn([true])).isInt({ min: 1 }),
+//   check('useUDP').if(check('active').isIn([true])).isBoolean(),
+//   check('useTimestamp').if(check('active').isIn([true])).isBoolean(),
+//   check('useCameraHeartbeat').if(check('active').isIn([true])).isBoolean(),
+//   check('cameraMode').if(check('active').isIn([true])).isIn(['streaming', 'photo', 'video']),
+//   check('useUDPPort').if(check('active').isIn([true])).isPort(),
+//   check('useUDPIP').if(check('active').isIn([true])).isIP(),
+//   check('bitrate').if(check('active').isIn([true])).isInt({ min: 50, max: 50000 }),
+//   check('format').if(check('active').isIn([true])).isIn(['video/x-raw', 'video/x-h264', 'image/jpeg']),
+//   check('fps').if(check('active').isIn([true])).isInt({ min: -1, max: 100 }),
+//   check('rotation').if(check('active').isIn([true])).isInt().isIn([0, 90, 180, 270])],
+//   check('compression').if(check('active').isIn([true])).isIn(['H264', 'H265']), (req, res) => {
+//   const errors = validationResult(req)
+//   if (!errors.isEmpty()) {
+//     winston.info('Bad POST vars in /api/startstopvideo ', { message: errors.array() })
+//     const ret = { streamingStatus: false, streamAddresses: [], error: ['Error ' + JSON.stringify(errors.array())] }
+//     return res.status(422).json(ret)
+//   }
+//   // user wants to start/stop video streaming
+//   vManager.startStopStreaming(req.body.active, req.body.device, req.body.height, req.body.width, req.body.format, req.body.rotation,
+//                               req.body.bitrate, req.body.fps, req.body.useUDP, req.body.useUDPIP, req.body.useUDPPort,
+//                               req.body.useTimestamp, req.body.useCameraHeartbeat, req.body.mavStreamSelected, req.body.cameraMode,
+//                               req.body.compression, (err, status, addresses) => {
+//     if (!err) {
+//       res.setHeader('Content-Type', 'application/json')
+//       const ret = { streamingStatus: status, streamAddresses: addresses }
+//       res.send(JSON.stringify(ret))
+//     } else {
+//       res.setHeader('Content-Type', 'application/json')
+//       const ret = { streamingStatus: false, streamAddresses: ['Error ' + err] }
+//       res.send(JSON.stringify(ret))
+//       winston.info('Error in /api/startstopvideo ', { message: err })
+//     }
+//   })
+// })
 
 // Get details of a network connection by connection ID
 app.post('/api/networkIP', authenticateToken, [check('conName').isUUID()], (req, res) => {
