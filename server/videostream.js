@@ -162,6 +162,8 @@ class videoStream {
         ++alias
       }
     }
+
+    console.log("Found interfaces:", iface); // ← add this
     return iface
   }
 
@@ -180,90 +182,184 @@ class videoStream {
   }
 
 
-  // video streaming
-  getVideoDevices (callback) {
+// video streaming
+getVideoDevices(callback) {
+  console.log("Retrieving video devices");
+  this.winston.info("Retrieving video devices");
 
-    console.log("Retrieving video devices")
-    this.winston.info("Retrieving video devices")
+  // --- Get Network Interfaces ---
+  const networkInterfaces = this.scanInterfaces(); // Get IPs regardless of video devices
 
-    // get all video device details
-    // callback is: err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, cameraHeartbeat, selMavURI, cameraMode
-    exec('python3 ./python/gstcaps.py', (error, stdout, stderr) => {
-      const warnstrings = ['DeprecationWarning', 'gst_element_message_full_with_details', 'camera_manager.cpp', 'Unsupported V4L2 pixel format']
+  exec('python3 ./python/gstcaps.py', (error, stdout, stderr) => {
+      const warnstrings = ['DeprecationWarning', 'gst_element_message_full_with_details', 'camera_manager.cpp', 'Unsupported V4L2 pixel format'];
       if (stderr && !warnstrings.some(wrn => stderr.includes(wrn))) {
-        console.error(`exec error: ${error}`)
-        this.winston.info('Error in getVideoDevices() ', { message: stderr })
-        return callback(stderr)
+          console.error(`exec error: ${error}`);
+          this.winston.info('Error in getVideoDevices() ', { message: stderr });
+          // Send interfaces even on script error
+          return callback(stderr, { networkInterfaces: networkInterfaces });
       }
+
+      // --- Initialize responseData with ALL potential fields and defaults ---
+      let responseData = {
+          devices: [],
+          networkInterfaces: networkInterfaces,
+          active: false, // Assume inactive initially
+          cameraMode: this.cameraMode,
+          streamAddresses: [],
+          selectedDevice: null,
+          selectedCap: null,
+          selectedRotation: { label: '0°', value: 0 },
+          selectedBitrate: 1100,
+          selectedFps: null,
+          selectedUseUDP: false,
+          selectedUseUDPIP: '127.0.0.1',
+          selectedUseUDPPort: 5400,
+          selectedUseTimestamp: false,
+          fpsOptions: [],
+          fpsMax: 0,
+          resolutionCaps: [], // Will be populated by selectedDevice or default
+          selectedUseCameraHeartbeat: false,
+          selectedMavStreamURI: { label: '127.0.0.1', value: '127.0.0.1' } // Default MAV URI
+      };
 
       try {
-        console.log(stdout)
-        this.winston.info(stdout)
-        this.videoDevices = JSON.parse(stdout)
+          this.videoDevices = JSON.parse(stdout);
+          responseData.devices = this.videoDevices; // Assign parsed devices
 
-        if (!this.videoDevices || this.videoDevices.length === 0) {
-          return callback('No video devices found')
-        } else {
-          console.log(this.videoDevices)
-          this.winston.info(this.videoDevices)
-        }
-
-        const defaultDevice = this.videoDevices[0]
-        const defaultCap = defaultDevice.caps[0]
-        const defaultFps = defaultCap.fpsmax === 0 ? defaultCap.fps[0] : defaultCap.fpsmax
-
-        // Return current settings or defaults
-        if (!this.active || !this.videoSettings) {
-          // Return default settings
-          return callback(null, this.videoDevices, false, defaultDevice, defaultCap,
-            { label: '0°', value: 0 }, 1100, defaultFps, false, '127.0.0.1', 5400,
-            false, defaultCap.fps || [], defaultCap.fpsmax, defaultDevice.caps, false,
-            { label: '127.0.0.1', value: 0 })
-        } else {
-
-        // Match saved device with available devices
-        const selDevice = this.videoDevices.find(dev => dev.value === this.videoSettings.device)
-
-          if (!selDevice) {
-            console.error('Saved video device not found in available devices')
-            this.winston.info('Saved video device not found')
-            return this.resetAndReturnDefaults(callback, defaultDevice, defaultCap, defaultFps)
+          if (!this.videoDevices || this.videoDevices.length === 0) {
+              // No devices found, return response with defaults and interfaces
+              return callback('No video devices found', responseData);
           }
 
-          // Match saved resolution with available resolutions
-          const formatString = `${this.videoSettings.width}x${this.videoSettings.height}x${this.videoSettings.format.toString().split('/')[1]}`
-          const selRes = selDevice.caps.find(cap => cap.value === formatString)
+          // --- Setup Defaults based on first device ---
+          const defaultDevice = this.videoDevices[0];
+          const defaultCap = defaultDevice.caps?.[0]; // Use optional chaining for safety
+          let defaultFps = null;
+          let defaultMavUriValue = networkInterfaces.includes('127.0.0.1') ? '127.0.0.1' : (networkInterfaces[0] || '127.0.0.1');
 
-          if (!selRes) {
-            console.error('Saved video resolution not found in available resolutions')
-            this.winston.info('Saved video resolution not found')
-            return this.resetAndReturnDefaults(callback, defaultDevice, defaultCap, defaultFps)
+          responseData.selectedDevice = defaultDevice; // Set default device
+          responseData.resolutionCaps = defaultDevice.caps || []; // Assign caps from default device
+
+          if (defaultCap) {
+              responseData.selectedCap = defaultCap; // Set default cap if it exists
+              const fpsMax = defaultCap.fpsmax ?? 0;
+              const fpsOpts = defaultCap.fps || [];
+              responseData.fpsMax = fpsMax;
+              responseData.fpsOptions = fpsOpts;
+              defaultFps = fpsMax === 0 ? (fpsOpts[0] ?? null) : fpsMax; // Default FPS logic
+              responseData.selectedFps = defaultFps;
+          }
+           // Set default MAV URI (might be overridden later if active)
+          responseData.selectedMavStreamURI = { label: defaultMavUriValue, value: defaultMavUriValue };
+
+
+          // --- Try to Apply Active/Saved Settings (if applicable) ---
+          // Only attempt if active AND settings exist AND mode matches
+          let loadSaved = this.active &&
+                          ( (this.cameraMode === 'streaming' || this.cameraMode === 'video') && this.videoSettings ) ||
+                          ( this.cameraMode === 'photo' && this.stillSettings ); // Adjust logic slightly
+
+          let selDevice = null;
+          let selRes = null;
+
+          // We only apply saved video settings if mode is streaming/video
+          if (loadSaved && (this.cameraMode === 'streaming' || this.cameraMode === 'video')) {
+              responseData.active = true; // Mark active if loading saved
+              selDevice = this.videoDevices.find(dev => dev.value === this.videoSettings.device);
+
+              if (!selDevice) {
+                  console.error('Saved video device not found. Resetting.');
+                  this.winston.info('Saved video device not found. Resetting.');
+                  this.resetCamera();
+                  responseData.active = false; // Mark as inactive after reset
+                  loadSaved = false; // Prevent further loading attempts
+              } else {
+                   // Assign potentially different caps list based on the actual selected device
+                  responseData.resolutionCaps = selDevice.caps || [];
+                  const formatString = `${this.videoSettings.width}x${this.videoSettings.height}x${this.videoSettings.format.toString().split('/')[1]}`;
+                  selRes = selDevice.caps.find(cap => cap.value === formatString);
+
+                  if (!selRes) {
+                      console.error('Saved video resolution not found. Resetting.');
+                      this.winston.info('Saved video resolution not found. Resetting.');
+                      this.resetCamera();
+                      responseData.active = false; // Mark as inactive after reset
+                      loadSaved = false; // Prevent further loading attempts
+                  }
+              }
+          } else if (!loadSaved){
+               responseData.active = false; // Ensure active is false if not loading saved settings
           }
 
-          // Format fps selection
-          let selFps = this.videoSettings.fps
-          if (selRes.fpsmax !== undefined && selRes.fpsmax === 0) {
-            selFps = selRes.fps.find(fps => parseInt(fps.value) === this.videoSettings.fps) || defaultFps
+
+          // --- Override defaults only if saved settings were successfully loaded ---
+          if (loadSaved && (this.cameraMode === 'streaming' || this.cameraMode === 'video') && selDevice && selRes) {
+              // Format fps selection
+              let loadedFps = this.videoSettings.fps;
+               const loadedFpsMax = selRes.fpsmax ?? 0;
+               const loadedFpsOpts = selRes.fps || [];
+              if (loadedFpsMax === 0) {
+                  // Ensure fps value exists in the options for dropdown mode
+                  const foundFpsOption = loadedFpsOpts.find(fps => parseInt(fps.value) === this.videoSettings.fps);
+                  loadedFps = foundFpsOption || defaultFps; // Use found option or fallback to default
+              } else {
+                  // Ensure loaded FPS number is valid for the range
+                  const parsedLoadedFps = parseInt(loadedFps, 10);
+                  if(isNaN(parsedLoadedFps) || parsedLoadedFps < 1 || parsedLoadedFps > loadedFpsMax) {
+                      loadedFps = loadedFpsMax; // Default to max if invalid
+                  } else {
+                      loadedFps = parsedLoadedFps; // Use validated number
+                  }
+              }
+
+
+              // Populate RTSP addresses if needed (only for active RTSP streaming)
+              if (this.cameraMode === 'streaming' && !this.videoSettings.useUDP) {
+                  this.populateAddresses(selDevice.value.replace(/\W/g, ''));
+                  responseData.streamAddresses = this.deviceAddresses;
+              }
+
+              // Override defaults in responseData
+              responseData.selectedDevice = selDevice;
+              responseData.selectedCap = selRes;
+              responseData.selectedRotation = { label: this.videoSettings.rotation.toString() + '°', value: this.videoSettings.rotation };
+              responseData.selectedBitrate = this.videoSettings.bitrate;
+              responseData.selectedFps = loadedFps;
+              responseData.selectedUseUDP = this.videoSettings.useUDP;
+              responseData.selectedUseUDPIP = this.videoSettings.useUDPIP;
+              responseData.selectedUseUDPPort = this.videoSettings.useUDPPort;
+              responseData.selectedUseTimestamp = this.videoSettings.useTimestamp;
+              responseData.fpsOptions = loadedFpsOpts; // Use options from selected resolution
+              responseData.fpsMax = loadedFpsMax; // Use max from selected resolution
+              // resolutionCaps already set based on selDevice above
+              responseData.selectedUseCameraHeartbeat = this.videoSettings.useCameraHeartbeat;
+              const savedMavUriValue = this.videoSettings.mavStreamSelected?.toString() || defaultMavUriValue;
+              responseData.selectedMavStreamURI = { label: savedMavUriValue, value: savedMavUriValue };
+               // Ensure compression is also set based on loaded cap
+               responseData.compression = (selRes.format === "video/x-h264")
+                  ? { value: 'H264', label: 'H.264' }
+                  : (this.videoSettings.compression === 'H265' ? { value: 'H265', label: 'H.265' } : { value: 'H264', label: 'H.264' }); // Default to H264 if not native
           }
+          // If loadSaved was false or reset happened, the defaults set earlier will remain.
 
-          // Populate RTSP addresses
-          this.populateAddresses(selDevice.value.replace(/\W/g, ''))
+          // --- Add final logging before callback ---
+          console.log("--- getVideoDevices Final Response Data ---");
+          console.log("Network Interfaces:", responseData.networkInterfaces);
+          console.log("Stream Addresses:", responseData.streamAddresses);
+          console.log("Active:", responseData.active);
+          console.log("SelectedMavStreamURI:", responseData.selectedMavStreamURI);
+          console.log("------------------------------------------");
 
-          return callback(null, this.videoDevices, this.active, selDevice, selRes,
-            { label: this.videoSettings.rotation.toString() + '°', value: this.videoSettings.rotation},
-            this.videoSettings.bitrate, selFps, this.videoSettings.useUDP,
-            this.videoSettings.useUDPIP, this.videoSettings.useUDPPort,
-            this.videoSettings.useTimestamp, selRes.fps || [], selRes.fpsmax,
-            selDevice.caps, this.videoSettings.useCameraHeartbeat,
-            { label: this.videoSettings.mavStreamSelected.toString(), value: this.videoSettings.mavStreamSelected })
-        }
+          return callback(null, responseData); // Return the final data object
+
       } catch (e) {
-        console.error('Error parsing video devices:', e)
-        this.winston.info('Error parsing video devices:', e)
-        return callback('Failed to parse video device information')
+          console.error('Error processing video devices:', e);
+          this.winston.info('Error processing video devices:', e);
+          // Include interfaces even on processing error
+           return callback('Failed to process video device information', { ...responseData, devices: [], networkInterfaces: networkInterfaces }); // Ensure responseData is defined
       }
-    })
-  }
+  });
+}
 
   resetAndReturnDefaults(callback, defaultDevice, defaultCap, defaultFps) {
     this.resetCamera()
@@ -425,7 +521,14 @@ startCamera(callback) {
     // Populate RTSP addresses for the selected device
     this.populateAddresses(this.videoSettings.device.replace(/\W/g, ''))
 
-    this.startRtspServer(callback)
+    this.startRtspServer((err) => {
+      if (err) {
+        this.winston.error('Error starting RTSP server:', err);
+        return callback(err);
+      }
+
+      return callback(null, true, this.deviceAddresses);
+    });
   }
 
   async startRtspServer(callback) {
@@ -463,7 +566,8 @@ startCamera(callback) {
         this.resetCamera()
         console.log('Error spawning rtsp-server.py')
         this.winston.info('Error spawning rtsp-server.py')
-        return callback(new Error('Failed to start RTSP server'))
+        const freshInterfacesOnError = this.scanInterfaces();
+        return callback(new Error('Failed to start RTSP server'), { networkInterfaces: freshInterfacesOnError });
       }
 
       this.active = true
@@ -477,7 +581,22 @@ startCamera(callback) {
 
       console.log('Started Video Streaming of ' + device)
       this.winston.info('Started Video Streaming of ' + device)
-      return callback(null, this.active, this.deviceAddresses)
+      const freshInterfaces = this.scanInterfaces(); // Get current IPs
+
+        // ---> ADD LOGGING <---
+        console.log("--- startRtspServer Callback Data ---");
+        console.log("Active:", this.active);
+        console.log("Device Addresses:", this.deviceAddresses); // Check this value
+        console.log("Network Interfaces:", freshInterfaces);
+        console.log("------------------------------------");
+        // ---> END LOGGING <---
+
+      // Return an object containing active status, addresses, and interfaces
+      return callback(null, {
+          active: this.active,
+          addresses: this.deviceAddresses,
+          networkInterfaces: freshInterfaces
+      });
     } catch (e) {
       console.log('Error starting RTSP server:', e)
       this.winston.info('Error starting RTSP server:', e)
@@ -731,7 +850,7 @@ startCamera(callback) {
         this.resetCamera()
         console.log('Error spawning photomode.py')
         this.winston.info('Error spawning photomode.py')
-        return callback(new Error('Failed to start photo mode'))
+        return callback(new Error('Failed to start photo mode'), { networkInterfaces: freshInterfacesOnError });
       }
 
       this.active = true
@@ -741,11 +860,20 @@ startCamera(callback) {
 
       console.log('Started Photo Mode')
       this.winston.info('Started Photo Mode')
-      return callback(null, this.active, this.deviceAddresses)
+
+      const freshInterfaces = this.scanInterfaces(); // Get current IPs
+      // Return an object containing active status, addresses, and interfaces
+      return callback(null, {
+          active: this.active,
+          addresses: this.deviceAddresses, // May be empty in photo mode, but consistent
+          networkInterfaces: freshInterfaces
+      });
     } catch (e) {
       console.log('Error starting photo mode:', e)
       this.winston.info('Error starting photo mode:', e)
-      return callback(e)
+       // Pass error back, include interfaces in case that's useful for debugging
+      const freshInterfacesOnError = this.scanInterfaces();
+      return callback(e, { networkInterfaces: freshInterfacesOnError });
     }
   }
 
@@ -773,7 +901,9 @@ startCamera(callback) {
         this.resetCamera()
         console.log('Error spawning photomode.py for video mode')
         this.winston.info('Error spawning photomode.py for video mode')
-        return callback(new Error('Failed to start video recording mode'))
+         // Pass error back,  include interfaces in case it's useful
+         const freshInterfacesOnError = this.scanInterfaces();
+         return callback(new Error('Failed to start video recording mode'), { networkInterfaces: freshInterfacesOnError });
       }
 
       this.active = true
@@ -783,11 +913,19 @@ startCamera(callback) {
 
       console.log('Started Video Recording Mode')
       this.winston.info('Started Video Recording Mode')
-      return callback(null, this.active, this.deviceAddresses)
+
+      const freshInterfaces = this.scanInterfaces(); // Get current IPs
+       // Return an object containing active status, addresses, and interfaces
+      return callback(null, {
+          active: this.active,
+          addresses: this.deviceAddresses, // May be empty in video mode, but consistent
+          networkInterfaces: freshInterfaces
+      });
     } catch (e) {
       console.log('Error starting video recording mode:', e)
       this.winston.info('Error starting video recording mode:', e)
-      return callback(e)
+      const freshInterfacesOnError = this.scanInterfaces();
+      return callback(e, { networkInterfaces: freshInterfacesOnError });
     }
   }
 

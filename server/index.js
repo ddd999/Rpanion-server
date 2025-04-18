@@ -669,41 +669,33 @@ app.get('/api/softwareinfo', authenticateToken, (req, res) => {
 })
 
 app.get('/api/videodevices', authenticateToken, (req, res) => {
-  // vManager.populateAddresses() // Removed: Handled internally by getVideoDevices when active
-  // Updated callback signature
-  vManager.getVideoDevices((err, devices, active, selDevice, selCap, selRot, selBitrate, selFps, selUseUDP, selUseUDPIP, selUseUDPPort, selTimestamp, fpsOptions, fpsMax, allCaps, selCameraHeartbeat, selMavURI) => {
-  //vManager.getVideoDevices((err, devices, active, seldevice, selRes, selRot, selbitrate, selfps, SeluseUDP, SeluseUDPIP, SeluseUDPPort, timestamp, fps, FPSMax, vidres, useCameraHeartbeat, selMavURI, selCameraMode) => {
+  // Expect the callback structure: (err, responseData)
+  vManager.getVideoDevices((err, responseData) => {
+    res.setHeader('Content-Type', 'application/json'); // Set header earlier
     if (err) {
-      winston.error('Error getting video devices:', err);
-      return res.status(500).json({
-        error: `Failed to get video devices: ${err}`,
-        active: vManager.active, // Send current active state
-        cameraMode: vManager.cameraMode, // Send current mode
-        devices: vManager.videoDevices || [] // Send cached devices if available
+      winston.error('Error getting video devices /api/videodevices:', err);
+      // Determine appropriate status code
+      const status = (err === 'No video devices found') ? 404 : 500;
+       // Ensure responseData exists, especially for networkInterfaces on error
+      const interfaces = responseData?.networkInterfaces || vManager.scanInterfaces(); // Fallback scan on error
+      // Include minimal info on error
+      return res.status(status).json({
+          error: `Failed to get video devices: ${err.message || err}`,
+          active: responseData?.active ?? vManager.active, // Best guess at active state
+          cameraMode: responseData?.cameraMode ?? vManager.cameraMode, // Best guess
+          networkInterfaces: interfaces // Send interfaces even on error
       });
-   }
+    }
 
-    // Updated response structure based on new callback parameters
-    res.send(JSON.stringify({
-      devices: devices || [],
-      active: active,
-      cameraMode: vManager.cameraMode,
-      selectedDevice: selDevice,
-      selectedCap: selCap,
-      selectedRotation: selRot,
-      selectedBitrate: selBitrate,
-      selectedFps: selFps,
-      selectedUseUDP: selUseUDP,
-      selectedUseUDPIP: selUseUDPIP,
-      selectedUseUDPPort: selUseUDPPort,
-      selectedUseTimestamp: selTimestamp,
-      selectedUseCameraHeartbeat: selCameraHeartbeat,
-      selectedMavStreamURI: selMavURI,
-      fpsOptions: fpsOptions || [],
-      fpsMax: fpsMax,
-      resolutionCaps: allCaps || [],
-      streamAddresses: active ? vManager.deviceAddresses : [],
-      error: null
+    // Send the whole responseData object directly if no error
+    // Ensure we send an object even if responseData is somehow nullish
+    res.send(JSON.stringify(responseData || {
+         // Provide minimal defaults if responseData is completely missing
+         devices: [],
+         networkInterfaces: vManager.scanInterfaces(),
+         active: false,
+         cameraMode: 'streaming',
+         error: 'Received empty response from video module'
     }));
   });
 });
@@ -767,7 +759,8 @@ if (!errors.isEmpty()) {
       error: 'Validation failed',
       details: errors.array(),
       active: vManager.active, // Return current state
-      addresses: vManager.deviceAddresses
+      addresses: vManager.deviceAddresses || [],
+      networkInterfaces: vManager.scanInterfaces() || []
    });
 }
 
@@ -814,6 +807,13 @@ try {
         return res.status(500).json({ error: `Failed to start camera: ${err.message || err}`, active: false, addresses: [] });
       }
       winston.info(`Camera started successfully in ${mode} mode.`);
+
+    // ---> ADD LOGGING <---
+    console.log("--- /api/camera/start Sending Response ---");
+    console.log("Start result:", { active, addresses });
+    console.log("-----------------------------------------");
+    // ---> END LOGGING <---
+
       res.send(JSON.stringify({ active: active, addresses: addresses || [], error: null }));
     });
 
