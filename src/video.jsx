@@ -478,14 +478,23 @@ componentDidMount() {
           ifaces: (data.networkInterfaces || []).map(ip => ({ label: ip, value: ip })),
           error: null // Clear error on success
         });
-    })
-    .catch(error => {
-        console.error("Error starting camera:", error);
-        this.setState({ error: error.message }); // Display error message
-    })
-    .finally(() => {
-        this.setState({ waiting: false }); // Clear waiting indicator
+    // Re-fetch full device info to refresh `ifaces` properly
+    return fetch('/api/videodevices', {
+      headers: { Authorization: `Bearer ${this.state.token}` }
     });
+  })
+  .then(res => res.json())
+  .then(videoData => {
+    const ifaceList = (videoData.networkInterfaces || []).map(ip => ({ label: ip, value: ip }));
+    this.setState({ ifaces: ifaceList });
+  })
+  .catch(error => {
+    console.error("Error after starting camera:", error);
+    this.setState({ error: error.message });
+  })
+  .finally(() => {
+    this.setState({ waiting: false });
+  });
   }
 
   handleStopCamera = () => {
