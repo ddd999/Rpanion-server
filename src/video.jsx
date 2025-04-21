@@ -695,7 +695,7 @@ componentDidMount() {
            <div className="form-group row" style={{ marginBottom: '5px' }}>
               <label className="col-sm-4 col-form-label">Photo Device</label>
               <div className="col-sm-8">
-                   <Select isDisabled={active} onChange={this.handleStillDeviceChange} options={stillDevices} getOptionLabel={(option)=>option.card_name ?? option.path} getOptionValue={(option)=>option.path} value={stillDeviceSelected} isLoading={loading} placeholder="Select Still Camera..."/>
+                   <Select isDisabled={active} onChange={this.handleStillDeviceChange} options={stillDevices} getOptionLabel={(option)=>`${option.type || 'Unknown Type'}: ${option.card_name ?? option.path}`} getOptionValue={(option)=>option.path} value={stillDeviceSelected} isLoading={loading} placeholder="Select Still Camera..."/>
               </div>
           </div>
           <div className="form-group row" style={{ marginBottom: '5px' }}>
