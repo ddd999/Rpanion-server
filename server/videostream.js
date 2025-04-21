@@ -1038,11 +1038,14 @@ startCamera(callback) {
 
 
   captureStillPhoto (senderSysId, senderCompId, targetComponent) {
+    console.log('Attempting captureStillPhoto. Internal state: active=', this.active, 'mode=', this.cameraMode, 'deviceStream exists=', !!this.deviceStream);
+
     // Capture a single still photo
     console.log('Capturing still photo')
 
     if (!this.active || !this.deviceStream) {
       console.log('Cannot capture photo - camera not active')
+      console.log('Internal check failed: Cannot capture photo - camera not active or no deviceStream.');
       return
     }
 

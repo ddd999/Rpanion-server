@@ -101,12 +101,15 @@ ntripClient.eventEmitter.on('rtcmpacket', (msg, seq) => {
 
 // Capture a single still photo when in photo mode
 // This code responds to the button on the web interface
-app.post('/api/capturestillphoto', authenticateToken, function (req, res) {
+//app.post('/api/capturestillphoto', authenticateToken, function (req, res) {
+app.post('/api/capturestillphoto', function (req, res) {
   if (vManager.active && vManager.cameraMode === 'photo') {
-     // Call without MAVLink sender/target info as it's a UI trigger
+    console.log("[API /api/capturestillphoto] Conditions met. Calling vManager.captureStillPhoto()");
+    // Call without MAVLink sender/target info as it's a UI trigger
     vManager.captureStillPhoto();
     res.status(200).send({ message: 'Capture signal sent.'});
   } else {
+    console.log("[API /api/capturestillphoto] Conditions NOT met. Sending 400.");
     res.status(400).send({ error: 'Camera not active or not in photo mode.'});
   }
 })
