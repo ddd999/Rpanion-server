@@ -59,11 +59,10 @@ componentDidMount() {
     const videoData = await videoRes.json();
     const stillData = await stillRes.json();
 
-    // --- ADD LOGGING ---
-    console.log("--- Frontend received videoData (componentDidMount) ---");
-    console.log("videoData:", videoData);
-    console.log("---------------------------------");
-    // --- END LOGGING ---
+    // Log the raw stillData received
+    console.log("--- Frontend received stillData ---");
+    console.log("stillData:", stillData);
+    console.log("-----------------------------------");
 
     if (!videoRes.ok) throw new Error(`Video devices fetch failed: ${videoData.error || 'Unknown error'}`);
     if (!stillRes.ok) throw new Error(`Still devices fetch failed: ${stillData.error || 'Unknown error'}`);
@@ -107,6 +106,11 @@ componentDidMount() {
       stillCaps: stillData.selectedDevice?.caps || [],     // Use selectedDevice from stillData
       stillCapSelected: stillData.selectedCap || null     // Use selectedCap from stillData
     };
+
+    // Log the state object before setting it
+    console.log("--- Frontend stillStateUpdate ---");
+    console.log("stillStateUpdate:", stillStateUpdate);
+    console.log("---------------------------------");
 
     // --- Apply Combined State Updates ---
     this.setState({
@@ -691,7 +695,7 @@ componentDidMount() {
            <div className="form-group row" style={{ marginBottom: '5px' }}>
               <label className="col-sm-4 col-form-label">Photo Device</label>
               <div className="col-sm-8">
-                   <Select isDisabled={active} onChange={this.handleStillDeviceChange} options={stillDevices} getOptionLabel={(option)=>option.name} getOptionValue={(option)=>option.path} value={stillDeviceSelected} isLoading={loading} placeholder="Select Still Camera..."/>
+                   <Select isDisabled={active} onChange={this.handleStillDeviceChange} options={stillDevices} getOptionLabel={(option)=>option.card_name ?? option.path} getOptionValue={(option)=>option.path} value={stillDeviceSelected} isLoading={loading} placeholder="Select Still Camera..."/>
               </div>
           </div>
           <div className="form-group row" style={{ marginBottom: '5px' }}>

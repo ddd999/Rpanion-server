@@ -424,6 +424,17 @@ getVideoDevices(callback) {
     this.winston.info("Retrieving still camera devices")
 
     exec('python3 ./python/get_camera_caps.py', (error, stdout, stderr) => {
+
+            // --- Add Detailed Logging ---
+      console.log("--- get_camera_caps.py STDOUT ---");
+      console.log(stdout);
+      console.log("--- get_camera_caps.py STDERR ---");
+      console.error(stderr); // Log stderr
+      console.log("--- get_camera_caps.py ERROR Object ---");
+      console.error(error); // Log error object if exec fails
+      console.log("------------------------------------");
+      // --- End Logging ---
+
       if (error) {
         console.error(`Error in get_camera_caps.py: ${stderr || error.message}`);
         this.winston.info('Error in getStillDevices()', { message: stderr || error.message });
@@ -433,25 +444,46 @@ getVideoDevices(callback) {
       try {
         const cameraDevices = JSON.parse(stdout)
 
+        console.log("--- Parsed cameraDevices ---"); // Log after parsing
+        console.log(cameraDevices);
+        console.log("----------------------------");
+        // ... rest of the try block ...
+
+
         if (!Array.isArray(cameraDevices) || cameraDevices.length === 0) {
+          console.error("Parsed data is not a non-empty array!");
           return callback('No still camera capabilities found');
+        }
+        else {
+          console.log("cameraDevices: ", cameraDevices)
         }
 
         // Pick first device with valid caps as default
+        console.log("Finding default device...");
         const defaultDevice = cameraDevices.find(dev => dev.caps && dev.caps.length > 0);
+        console.log("Default device found:", defaultDevice ? defaultDevice.path : 'None');
         const defaultCap = defaultDevice?.caps[0];
+        console.log("Default cap:", defaultCap ? defaultCap.label : 'None');
 
+        console.log("Checking active/settings: Active=", this.active, "StillSettings=", this.stillSettings)
         if (!this.active || !this.stillSettings || !defaultCap) {
+          console.log("Returning defaults (not active or no settings/cap)");
           return callback(null, cameraDevices, false, defaultDevice, defaultCap)
         }
+
+        console.log("Attempting to match saved settings...");
 
         // Try to match the saved still device & resolution
         let selectedDevice = null
         let selectedCap = null
 
         for (const device of cameraDevices) {
+
+          console.log(`Comparing device path "${device.path}" with saved path "${this.stillSettings?.path}"`);
+
           if (device.path === this.stillSettings.path) {
             selectedDevice = device
+            console.log("Device path matched.");
 
             selectedCap = device.caps.find(cap =>
               cap.width === this.stillSettings.width &&
@@ -462,6 +494,8 @@ getVideoDevices(callback) {
             if (selectedCap) break
           }
         }
+
+        console.log("Finished matching. Matched Device:", selectedDevice ? selectedDevice.path : 'None', "Matched Cap:", selectedCap ? selectedCap.label : 'None');
 
         return callback(null, cameraDevices, true, selectedDevice || defaultDevice,
           selectedCap || defaultCap)
@@ -1090,12 +1124,15 @@ startCamera(callback) {
   }
 
   sendVideoStreamInformation (senderSysId, senderCompId, targetComponent) {
-    console.log('Sending MAVLinkr VideoStreamInformation packet')
-    this.winston.info('Sending MAVLinkr VideoStreamInformation packet')
+    console.log('Sending MAVLink VideoStreamInformation packet')
+    this.winston.info('Sending MAVLink VideoStreamInformation packet')
 
     if (!this.videoSettings) {
       console.log('No video settings available')
       return
+    }
+    else {
+      console.log('from sendVideoStreamInformation(), videoSettings:', this.videoSettings)
     }
 
     // build a VIDEO_STREAM_INFORMATION packet
@@ -1105,17 +1142,20 @@ startCamera(callback) {
     msg.streamId = 1
     msg.count = 1
 
-    // msg.type and msg.uri need to be different depending on whether RTP or RTSP is selected
-    if (this.videoSettings.useUDP) {
-      // msg.type = 0 = VIDEO_STREAM_TYPE_RTSP
-      // msg.type = 1 = VIDEO_STREAM_TYPE_RTPUDP
-      msg.type = 1
-      // For RTP, just send the destination UDP port instead of a full URI
-      msg.uri = this.videoSettings.useUDPPort.toString()
-    } else {
-      msg.type = 0
-      msg.uri = `rtsp://${this.videoSettings.mavStreamSelected}:8554/${this.videoSettings.videoDevice}`
-    }
+    // TODO: FIGURE OUT WHY MSG.URI AND/OR MSG.NAME AREN'T WORKING
+
+    // // msg.type and msg.uri need to be different depending on whether RTP or RTSP is selected
+    // if (this.videoSettings.useUDP) {
+    //   // msg.type = 0 = VIDEO_STREAM_TYPE_RTSP
+    //   // msg.type = 1 = VIDEO_STREAM_TYPE_RTPUDP
+    //   msg.type = 1
+    //   // For RTP, just send the destination UDP port instead of a full URI
+    //   msg.uri = this.videoSettings.useUDPPort.toString()
+    // } else {
+    //   msg.type = 0
+    //   msg.uri = `rtsp://${this.videoSettings.mavStreamSelected}:8554/${this.videoSettings.videoDevice}`
+    // }
+    msg.uri='rtsp://uri'
 
     // 1 = VIDEO_STREAM_STATUS_FLAGS_RUNNING
     // 2 = VIDEO_STREAM_STATUS_FLAGS_THERMAL
@@ -1127,7 +1167,8 @@ startCamera(callback) {
     msg.rotation = this.videoSettings.rotation
     // Rpanion doesn't collect field of view values, so just set to zero
     msg.hfov = 0
-    msg.name = this.videoSettings.videoDevice
+    // msg.name = this.videoSettings.videoDevice
+    msg.name = 'name'
 
     this.eventEmitter.emit('videostreaminfo', msg, senderSysId, senderCompId, targetComponent)
   }
