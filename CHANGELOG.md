@@ -1,4 +1,18 @@
 ### Changelog
+
+#### [v1.0.0](https://github.com/stephendade/Rpanion-server/compare/v0.12.0...v1.0.0)
+ - Upgrade to using nodejs 24
+ - Add local video and stills recording
+ - Support added for Jetson Orin (Jetpack 7.2)
+ - Various stability fixes to network management GUI
+ - Batter packaging (deb) and install scripts
+ - Support ArduPilot MAVLinkCamera, to allow ArduPilot to trigger still or video capture
+ - Add option to sync flight controller time (clock) to system time
+ - PPP: Better reliability with restarts and start-on-boot
+ - Add support for RasPiOS Trixie
+ - Updated detection of cameras
+ - Cloud: Upload photos and video. Allow for upload-on-disarm
+
 #### [v0.12.0](https://github.com/stephendade/Rpanion-server/compare/v0.11.4...v0.12.0)
  - Flight Controller: Add UDP (network) support
  - PPP: Add PPP link management to flight controller
