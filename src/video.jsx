@@ -792,6 +792,9 @@ renderContent() {
       <Form style={{ width: 600 }}>
         <p><i>Configure camera operation: live video streaming, still photo capture, or local video recording. Only one mode can be active at a time. Multicast IP addresses are supported in RTP mode.</i></p>
         <p>Locally saved photos and videos can be viewed or deleted from the <Link to="/flightlogs">Flight Logs and Media</Link> page.</p>
+        <p>Use CAMn_TYPE=6 (MAVLinkCamV2) with Photo or Video Recording mode to allow ArduPilot to
+          trigger the camera.
+        </p>
         {(!isStreaming || this.state.recordLocally) && (
           <p>Media destination folder (an optional relative sub-folder inside: <i>{this.state.appRoot}/media/</i>)</p>
         )}
